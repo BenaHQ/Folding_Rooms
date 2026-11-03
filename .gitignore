@@ -1,0 +1,15 @@
+# Cache di Godot: si rigenera da sola all'apertura del progetto.
+.godot/
+
+# Traduzioni compilate: si rigenerano dai file sorgente.
+*.translation
+
+# Modello di build Android installato dall'editor e giochi esportati.
+android/
+builds/
+
+# Chiavi e certificati di firma: non devono mai finire nel repository.
+*.keystore
+*.jks
+*.p12
+*.mobileprovision

@@ -33,12 +33,14 @@
 
 **Obiettivo:** su PC, con grafica segnaposto, trascinare una parete è già piacevole. È la fase più importante del progetto (concept, sezione 2).
 
-- [ ] Disegnare involucro e camera con forme semplici.
-- [ ] Selezione della camera e maniglie con area sensibile di almeno 48 dp. Le camere da 1 cella (circa 110 px di base) lasciano troppo poco spazio a due maniglie opposte da 96 px: va deciso come non farle sovrapporre.
-- [ ] Trascinamento: la deformazione elastica segue il dito, le regole scattano a celle intere.
-- [ ] Anteprima valido/non valido con contorno, icona e sagoma di prova, senza che il dito copra l'informazione.
-- [ ] Rilascio: assestamento morbido se la modifica è valida, ritorno elastico se è rifiutata.
-- [ ] Casi limite: secondo dito e tocco interrotto.
+- [x] Disegnare involucro e camera con forme semplici.
+- [x] Selezione della camera e maniglie con area sensibile di almeno 48 dp. Nelle camere da 1 cella le aree possono sovrapporsi: vince la maniglia con il centro più vicino al dito.
+- [x] Trascinamento: la deformazione elastica segue il dito, le regole scattano a celle intere.
+- [x] Anteprima valido/non valido con contorno, icona e sagoma di prova, senza che il dito copra l'informazione.
+- [x] Rilascio: assestamento morbido se la modifica è valida, ritorno elastico se è rifiutata.
+- [x] Casi limite: secondo dito e tocco interrotto.
+- [x] Gesto dall'interno della camera: la metà toccata e l'asse del dito scelgono il lato (D-012).
+- [ ] Riccardo prova il gesto su PC e giudica se è piacevole: un test automatico non può dirlo.
 
 ## Fase 3 — Prova su un telefono vero
 
@@ -47,7 +49,7 @@
 - [ ] Installare export templates 4.7.2, JDK e Android SDK. Le licenze le accetta Riccardo.
 - [ ] Decisione: identificativo dell'app. Proposta: `com.benahq.foldingrooms`. Va fissato prima della pubblicazione, perché cambiarlo dopo crea un'app diversa.
 - [ ] Installare sul telefono una prima build di debug, escludendo `addons/gut/` e `tests/` dall'export.
-- [ ] Regolare dimensione delle maniglie, elasticità, precisione e fluidità.
+- [ ] Regolare dimensione delle maniglie, elasticità, precisione e fluidità, e controllare che i gesti di sistema ai bordi dello schermo non disturbino le maniglie vicine.
 
 **Cancello 1:** Riccardo prova il gesto sul telefono. Se non convince si torna alla fase 2 e non si aggiunge altro.
 

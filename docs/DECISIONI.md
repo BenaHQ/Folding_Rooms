@@ -64,3 +64,9 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 
 - **Decisione:** D-008 (GUT) e D-009 (renderer Compatibility) sono confermate.
 - **Deciso da:** Riccardo.
+
+## D-012 — 2026-11-03 — Gesto dall'interno della camera
+
+- **Decisione:** a camera selezionata si può trascinare da qualsiasi punto al suo interno. La direzione del dito dà l'asse e il punto toccato dà il lato: dalla metà alta si muove il soffitto, dalla bassa il pavimento, dalla sinistra la parete sinistra, dalla destra la parete destra. Nello stesso gesto, un verso fa crescere la camera e l'altro la rimpicciolisce.
+- **Motivo:** tutta la camera diventa un bersaglio e il dito non copre la parete che si sposta. Claude Code aveva raccomandato la variante in cui conta solo la direzione, che però da sola fa solo crescere la camera, perché qui toccando vicino al centro il risultato può invertirsi. Da verificare provando il gesto.
+- **Deciso da:** Riccardo. Per il momento ha scelto di tenere anche le maniglie, visibili e afferrabili dalla parte fuori dalla camera.

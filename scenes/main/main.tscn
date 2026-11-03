@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scenes/main/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/room_editor/room_editor.tscn" id="2_room_editor"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -15,3 +16,6 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0.96, 0.91, 0.82, 1)
+
+[node name="RoomEditor" parent="." instance=ExtResource("2_room_editor")]
+layout_mode = 1

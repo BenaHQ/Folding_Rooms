@@ -24,17 +24,17 @@
 
 **Obiettivo:** il codice, senza grafica, sa dire se una modifica è permessa e perché.
 
-- [ ] Decisione: griglia e forme. Proposta per il prototipo: involucro di 6×8 celle e camere rettangolari. Con 6 colonne ogni cella misura circa 110 px di base, cioè più dei 48 dp minimi su un telefono largo circa 360 dp (48 dp ≈ 96 px di base).
-- [ ] Scrivere `Grid`, `Room` ed `Envelope` in `core/`.
-- [ ] Scrivere la funzione di anteprima: dati camera, lato e spostamento in celle, restituisce il risultato previsto e il motivo di un eventuale rifiuto, senza modificare nulla.
-- [ ] Test: spazio libero, limite dell'involucro, dimensione minima, sovrapposizioni.
+- [x] Decisione: griglia di 6×8 celle, camere rettangolari, misura minima 1×1 (D-010).
+- [x] Scrivere `Grid`, `Room` ed `Envelope` in `core/`.
+- [x] Scrivere la funzione di anteprima: dati camera, lato e spostamento in celle, restituisce il risultato previsto e il motivo di un eventuale rifiuto, senza modificare nulla.
+- [x] Test: spazio libero, limite dell'involucro, dimensione minima, sovrapposizioni.
 
 ## Fase 2 — Il gesto su una camera
 
 **Obiettivo:** su PC, con grafica segnaposto, trascinare una parete è già piacevole. È la fase più importante del progetto (concept, sezione 2).
 
 - [ ] Disegnare involucro e camera con forme semplici.
-- [ ] Selezione della camera e maniglie con area sensibile di almeno 48 dp.
+- [ ] Selezione della camera e maniglie con area sensibile di almeno 48 dp. Le camere da 1 cella (circa 110 px di base) lasciano troppo poco spazio a due maniglie opposte da 96 px: va deciso come non farle sovrapporre.
 - [ ] Trascinamento: la deformazione elastica segue il dito, le regole scattano a celle intere.
 - [ ] Anteprima valido/non valido con contorno, icona e sagoma di prova, senza che il dito copra l'informazione.
 - [ ] Rilascio: assestamento morbido se la modifica è valida, ritorno elastico se è rifiutata.

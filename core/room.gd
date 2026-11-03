@@ -1,0 +1,73 @@
+class_name Room
+extends RefCounted
+## Camera dell'hotel: un rettangolo di celle dentro l'edificio.
+##
+## COSA FA: ricorda quali celle occupa e calcola che forma avrebbe spostando uno
+## dei suoi lati. Non decide se la modifica è permessa: conosce solo sé stessa,
+## mentre per decidere serve sapere dove sono l'involucro e le altre camere.
+## CHI LA USA: Grid, che tiene l'elenco delle camere e applica le regole.
+## PERCHÉ È SEPARATA: non disegna nulla, quindi i test automatici possono provarla
+## senza avviare il gioco.
+## NOTA GDSCRIPT: «extends RefCounted» crea un oggetto che non compare nella scena
+## e che Godot elimina da solo quando nessuno lo usa più. Un «enum» è un elenco di
+## valori con un nome, più leggibile e sicuro di un numero qualsiasi.
+## COORDINATE: tutto è in celle; (0, 0) è in alto a sinistra e la Y cresce verso il
+## basso, quindi salire significa diminuire la Y.
+
+## I quattro lati di una camera che il giocatore può trascinare. Attenzione: il nome
+## «Side» da solo non si può usare, perché Godot ha già un elenco globale con quel
+## nome e il tipo di un parametro verrebbe confuso con il suo.
+enum MovableSide {
+	LEFT_WALL, ## Parete sinistra.
+	RIGHT_WALL, ## Parete destra.
+	CEILING, ## Soffitto, cioè il lato in alto.
+	FLOOR, ## Pavimento, cioè il lato in basso.
+}
+
+## Larghezza minima di una camera, in celle (decisione D-010).
+const MIN_WIDTH_CELLS: int = 1
+## Altezza minima di una camera, in celle (decisione D-010).
+const MIN_HEIGHT_CELLS: int = 1
+
+## Le celle occupate dalla camera. Le regole di Grid controllano ogni modifica:
+## non cambiare questo valore senza passare da Grid.
+var cells: Rect2i
+
+
+## Crea una camera che occupa il rettangolo indicato, in celle.
+func _init(room_cells: Rect2i) -> void:
+	cells = room_cells
+
+
+## Restituisce true se un rettangolo ha le misure minime di una camera. Il parametro
+## è in celle. «static» significa che la funzione si chiama sulla classe, con
+## Room.has_allowed_size(...), senza dover creare una camera.
+static func has_allowed_size(room_cells: Rect2i) -> bool:
+	return room_cells.size.x >= MIN_WIDTH_CELLS and room_cells.size.y >= MIN_HEIGHT_CELLS
+
+
+## Restituisce le celle che la camera occuperebbe spostando un lato, senza
+## modificare la camera. offset_cells segue gli assi dello schermo, come il dito:
+## positivo verso destra o verso il basso, negativo verso sinistra o verso l'alto.
+## Se il lato oltrepassa quello opposto, le misure del risultato sono zero o
+## negative: il controllo spetta a chi chiama, con has_allowed_size().
+func cells_after_moving(side: MovableSide, offset_cells: int) -> Rect2i:
+	var result: Rect2i = cells
+
+	# Il rettangolo è descritto dall'angolo in alto a sinistra e dalle misure.
+	# Destra e pavimento cambiano solo la misura. Sinistra e soffitto spostano
+	# anche l'angolo, e la misura cambia al contrario: salendo di una cella (-1) il
+	# soffitto rende la camera più alta di una cella (+1), a pavimento fermo.
+	match side:
+		MovableSide.LEFT_WALL:
+			result.position.x += offset_cells
+			result.size.x -= offset_cells
+		MovableSide.RIGHT_WALL:
+			result.size.x += offset_cells
+		MovableSide.CEILING:
+			result.position.y += offset_cells
+			result.size.y -= offset_cells
+		MovableSide.FLOOR:
+			result.size.y += offset_cells
+
+	return result

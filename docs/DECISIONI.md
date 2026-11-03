@@ -53,3 +53,14 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Decisione:** Compatibility (`gl_compatibility`) su tutte le piattaforme, telefoni compresi.
 - **Motivo:** la documentazione di Godot 4.7 lo indica come sufficiente di solito per il 2D, con il supporto hardware più ampio e consigliato per i telefoni meno recenti. Gli effetti avanzati degli altri renderer non servono a questo gioco.
 - **Deciso da:** Claude Code, seguendo la proposta della scaletta e la richiesta di Riccardo di completare la fase 0 senza fermarsi; da confermare. Si cambia in `project.godot`.
+
+## D-010 — 2026-11-03 — Griglia e forme del prototipo
+
+- **Decisione:** involucro di 6×8 celle, camere solo rettangolari, misura minima di una camera 1×1 cella.
+- **Motivo:** con 6 colonne ogni cella misura circa 110 px di base, più dei 96 px che corrispondono a 48 dp su un telefono largo circa 360 dp. Le camere rettangolari sono la regola proposta dal concept, sezione 2. La misura minima 1×1 dà la massima libertà: resta da risolvere nella fase 2 come non far sovrapporre le maniglie.
+- **Deciso da:** Riccardo. Claude Code aveva raccomandato una misura minima di 2×2. Le misure sono costanti in `core/envelope.gd` e `core/room.gd`, da rivedere dopo la prova sul telefono.
+
+## D-011 — 2026-11-03 — Conferma di framework di test e renderer
+
+- **Decisione:** D-008 (GUT) e D-009 (renderer Compatibility) sono confermate.
+- **Deciso da:** Riccardo.

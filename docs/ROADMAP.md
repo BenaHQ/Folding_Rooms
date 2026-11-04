@@ -63,9 +63,10 @@
 
 **Obiettivo:** modificare una camera può coinvolgere quella accanto, in modo leggibile.
 
-- [ ] Decisione: accessi e corridoi. Proposta: ignorati nel prototipo, da rivalutare dopo la prova con i giocatori.
-- [ ] Regola della parete condivisa: spostarla cambia entrambe le camere; rifiuto se una diventa inutilizzabile; nessuna cancellazione automatica. Con test.
-- [ ] Anteprima visiva delle due modifiche insieme.
+- [x] Decisione: accessi e corridoi ignorati nel prototipo, da rivalutare dopo la prova con i giocatori (D-020).
+- [x] Regola della parete condivisa: spostarla cambia entrambe le camere; rifiuto se una diventa inutilizzabile; nessuna cancellazione automatica. Con test (D-021).
+- [x] Anteprima visiva delle due modifiche insieme.
+- [x] Riccardo prova la regola: la vicina si muove solo se spinta (D-022). Sul telefono ha provato la versione precedente, la correzione nel simulatore.
 
 ## Fase 5 — Ospiti
 

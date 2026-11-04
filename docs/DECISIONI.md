@@ -110,3 +110,28 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Decisione:** il gioco non premia il minimo spazio in cui un ospite entra. Ogni ospite ha una misura per entrare e una per stare bene; stipare un ospite è permesso, ma ha conseguenze visibili (reazione triste, permanenza più breve, nessun ricordo); una camera troppo grande non è sempre migliore. I compensi dipendono soprattutto dal benessere e nessun punteggio premia la densità di ospiti per cella.
 - **Motivo:** Riccardo ha osservato che ottimizzare lo spazio porta a ospiti stipati, come una giraffa in una camera 3×1, in contrasto con il concept, che promette ospiti felici e non ordini da smaltire. Il puzzle resta perché l'involucro è limitato.
 - **Deciso da:** Riccardo, su proposta di Claude Code. Misure ed economia precise restano da definire; l'efficacia è un'ipotesi da verificare nella fase 7.
+
+## D-020 — 2026-11-04 — Accessi e corridoi nel prototipo
+
+- **Decisione:** accessi e corridoi sono ignorati nel prototipo: nessuna regola controlla come si raggiunge una camera. Si rivalutano dopo la prova con i giocatori (fase 7).
+- **Motivo:** permette di provare da sola la regola della parete condivisa. Il rischio accettato è che alcune disposizioni approvate ora non siano più valide quando arriveranno i corridoi.
+- **Deciso da:** Riccardo, su proposta della scaletta.
+
+## D-021 — 2026-11-04 — Regola della parete condivisa
+
+- **Decisione:** una parete che raggiunge una camera vicina la sposta; se la tocca già, la vicina la segue anche quando rientra. La modifica è rifiutata se la vicina scende sotto la misura minima o se resterebbe non rettangolare, cioè se la parete non copre tutto il suo lato. La spinta non passa a una terza camera e nessuna camera viene cancellata. Se la vicina è più lunga della parete, rientrando si lascia spazio libero.
+- **Motivo:** applica la scaletta (fase 4) e il concept, sezione 2, mantenendo le camere rettangolari (D-010). Il comportamento in rientro non è ancora provato: due camere che si toccano con lo stesso lato non possono separarsi trascinando quella parete.
+- **Deciso da:** Claude Code, seguendo la regola approvata nella scaletta; i dettagli sono da confermare con la prova di Riccardo.
+
+## D-022 — 2026-11-04 — La camera vicina si muove solo se spinta
+
+- **Decisione:** quando una parete rientra, la camera vicina resta ferma e si crea spazio libero, anche se le due camere si toccano. Spingere resta come in D-021.
+- **Motivo:** provando sul telefono, Riccardo ha giudicato un difetto che la seconda camera seguisse la prima quando sono già attaccate.
+- **Deciso da:** Riccardo, che ha confermato la regola dopo la correzione.
+- **Sostituisce:** in D-021, la parte sulla camera vicina che segue la parete quando rientra.
+
+## D-023 — 2026-11-04 — Prove nel simulatore iPhone con l'app nativa
+
+- **Decisione:** le prove rapide si fanno nel simulatore iPhone con l'app nativa, tramite `tools/run_ios_simulator.sh`. Il telefono resta necessario per giudicare tocco vero e fluidità.
+- **Motivo:** nei modelli ufficiali di Godot 4.7.2 la libreria per simulatore è solo `x86_64` e su questo Mac viene rifiutata. La libreria `arm64` è stata compilata dai sorgenti ufficiali di `4.7.2-stable` (checksum verificato) con SCons 4.11.1, in circa 6 minuti, ed è salvata fuori dal repository in `~/Library/Application Support/Godot/custom_templates/4.7.2-ios-simulator-arm64/`. Serve solo al simulatore: le build per iPhone usano i modelli ufficiali.
+- **Deciso da:** Riccardo.

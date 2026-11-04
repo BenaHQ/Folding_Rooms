@@ -214,3 +214,9 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Controllo:** stessa simulazione, 40 partite da 40 giorni, comprando appena possibile: rifiutati 0% al giorno 1, 12% nei giorni 1-3, 8% nei giorni 4-10, 5% nei giorni 11-20, 7% dopo; nei giorni 21-40 circa 9 camere e 7 occupate. Il giocatore automatico sceglie male e non sposta le camere, quindi i numeri indicano solo l'ordine di grandezza. Una persona non è ancora stata misurata.
 - **Deciso da:** Riccardo per l'obiettivo e per le misure; Claude Code per i valori, confermati da Riccardo senza ancora una prova misurata.
 - **Sostituisce:** in D-029, la formula degli arrivi; in D-026, D-032 e D-033, le permanenze iniziali.
+
+## D-035 — 2026-11-04 — Formato della proposta grafica principale
+
+- **Decisione:** la proposta della schermata principale usa un rapporto **9:16 verticale**, come richiesto esplicitamente da Riccardo dopo l'esplorazione delle proporzioni iPhone. Il file finale è `immagini/folding_rooms_main_ui_style_v1.png`, 1152×2048 pixel.
+- **Motivo:** definire il formato desiderato per la proposta. Il progetto usa già una base 720×1280 con espansione sugli schermi più lunghi: nessuna impostazione Godot è cambiata.
+- **Deciso da:** Riccardo per il rapporto. Direzione artistica, guida in `docs/STILE.md` e integrazione nel gioco restano da valutare; questa decisione non approva automaticamente lo stile.

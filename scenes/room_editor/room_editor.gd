@@ -12,8 +12,10 @@ extends Control
 ## NOTA GDSCRIPT: «extends Control» indica un nodo adatto all'interfaccia, che riceve i
 ## tocchi nella funzione _gui_input(). Un nodo è un mattone della scena; la scena è un
 ## albero di nodi. _draw() è la funzione in cui un nodo disegna sé stesso: Godot la
-## richiama solo dopo queue_redraw(), quindi quando nulla cambia non si consuma
-## batteria. Un Tween è un oggetto che fa cambiare un valore gradualmente nel tempo.
+## richiama solo dopo queue_redraw(), quindi quando nulla cambia il disegno non viene
+## ricalcolato. Godot aggiorna comunque lo schermo a ogni fotogramma, salvo diversa
+## impostazione del progetto. Un Tween è un oggetto che fa cambiare un valore
+## gradualmente nel tempo.
 ## COORDINATE: l'origine del nodo è in alto a sinistra; X cresce verso destra e Y verso
 ## il basso. Le misure della camera sono in pixel a partire dall'angolo in alto a
 ## sinistra dell'involucro, così non dipendono dalla forma dello schermo.
@@ -74,9 +76,8 @@ const ENVELOPE_COLOR: Color = Color(1.0, 0.98, 0.93)
 const ENVELOPE_BORDER_COLOR: Color = Color(0.62, 0.55, 0.47)
 const GRID_LINE_COLOR: Color = Color(0.62, 0.55, 0.47, 0.25)
 const GRID_LINE_DRAG_COLOR: Color = Color(0.62, 0.55, 0.47, 0.55)
-const ROOM_COLOR: Color = Color(0.56, 0.82, 0.72)
-const ROOM_BORDER_COLOR: Color = Color(0.17, 0.36, 0.32)
-const SILHOUETTE_COLOR: Color = Color(0.77, 0.42, 0.28)
+## La sagoma è semitrasparente: deve mostrare lo spazio occupato senza nascondere la camera.
+const SILHOUETTE_COLOR: Color = Color(0.77, 0.42, 0.28, 0.55)
 const HANDLE_COLOR: Color = Color(0.17, 0.36, 0.32)
 const VALID_COLOR: Color = Color(0.09, 0.47, 0.36)
 const INVALID_COLOR: Color = Color(0.72, 0.13, 0.13)
@@ -115,6 +116,8 @@ var _bent_side: Room.MovableSide = Room.MovableSide.CEILING
 var _handles_scale: float = 0.0
 ## L'animazione di assestamento in corso, per poterla fermare a un nuovo tocco.
 var _settle_tween: Tween = null
+## Chi disegna l'interno e il muro della camera (prova di stile).
+var _painter: RoomPainter = RoomPainter.new()
 
 
 ## Godot chiama _ready() una sola volta, quando il nodo entra nella scena: qui si crea
@@ -122,6 +125,9 @@ var _settle_tween: Tween = null
 func _ready() -> void:
 	_grid = Grid.new(Envelope.new())
 	room = Room.new(INITIAL_ROOM_CELLS)
+
+	# Le immagini di RoomPainter sono piccole e devono ripetersi invece di fermarsi al bordo.
+	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 
 	# La camera iniziale rispetta le regole per costruzione: se non fosse così sarebbe
 	# un errore di programmazione da far notare subito.
@@ -258,9 +264,10 @@ func _set_room_selected(selected: bool) -> void:
 ## Inizia il trascinamento di un lato. finger_index è il dito che lo esegue e start_position
 ## il punto, in pixel del nodo, da cui si misura lo spostamento.
 func _begin_drag(side: Room.MovableSide, finger_index: int, start_position: Vector2) -> void:
-	# Se la camera si sta ancora assestando, si riparte dalla sua forma vera.
+	# Se la camera si sta ancora assestando, si riparte dalla sua forma vera, con i lati dritti.
 	_stop_settle_animation()
 	_visual_rect = _cells_to_pixels(room.cells)
+	_bend = Vector2.ZERO
 
 	_drag = RoomDrag.new(_grid, room, side, CELL_SIZE_PIXELS)
 	_is_recognizing_gesture = false
@@ -336,13 +343,12 @@ func _animate_to_room_shape(seconds: float, transition: Tween.TransitionType) ->
 	_settle_tween.tween_method(_set_bend, _bend, Vector2.ZERO, seconds).set_trans(transition).set_ease(Tween.EASE_OUT)
 
 
-## Ferma l'assestamento in corso, se c'è, e toglie la curvatura rimasta.
+## Ferma l'assestamento in corso, se c'è. La curvatura resta dov'è: chi chiama decide se
+## azzerarla, come un nuovo trascinamento, o se animarla, come il rilascio del dito.
 func _stop_settle_animation() -> void:
 	if _settle_tween != null:
 		_settle_tween.kill()
 		_settle_tween = null
-
-	_bend = Vector2.ZERO
 
 
 ## Imposta il rettangolo disegnato. La chiama il Tween durante l'animazione.
@@ -423,17 +429,15 @@ func _draw_envelope(origin: Vector2) -> void:
 	draw_rect(Rect2(origin, envelope_size), border_color, false, border_width)
 
 
-## Disegna la camera con il lato incurvato e la sagoma di prova.
+## Disegna la camera con il lato incurvato e la sagoma di prova. Interno e muro sono compito
+## di RoomPainter; la sagoma sta tra i due, così i suoi piedi restano dietro il muro.
 func _draw_room(origin: Vector2) -> void:
 	var rect: Rect2 = Rect2(origin + _visual_rect.position, _visual_rect.size)
 	var outline: PackedVector2Array = _build_room_outline(rect)
 
-	draw_colored_polygon(outline, ROOM_COLOR)
+	_painter.paint_interior(self, outline, rect, origin)
 	_draw_silhouette(rect)
-
-	# draw_polyline() non chiude la forma da solo: si ripete il primo punto alla fine.
-	outline.append(outline[0])
-	draw_polyline(outline, ROOM_BORDER_COLOR, THICK_LINE_PIXELS, true)
+	_painter.paint_frame(self, outline)
 
 
 ## Costruisce il contorno della camera in senso orario, a partire dall'angolo in alto a
@@ -463,17 +467,23 @@ func _append_side_points(points: PackedVector2Array, from: Vector2, to: Vector2,
 		points.append(from.lerp(to, t) + bend * 4.0 * t * (1.0 - t))
 
 
-## Disegna la sagoma di prova appoggiata al pavimento: un corpo e una testa rotonda. Non
-## viene tagliata dal soffitto, così si vede subito se la camera è troppo bassa.
+## Disegna la sagoma di prova appoggiata al pavimento: una sola forma con la cima tonda, così
+## la trasparenza resta uniforme. Non viene tagliata dal soffitto, così si vede subito se la
+## camera è troppo bassa.
 func _draw_silhouette(room_rect: Rect2) -> void:
 	var width: float = SILHOUETTE_WIDTH_CELLS * CELL_SIZE_PIXELS
 	var height: float = SILHOUETTE_HEIGHT_CELLS * CELL_SIZE_PIXELS
-	var radius: float = width / 2.0
 	var center_x: float = room_rect.get_center().x
 	var floor_y: float = room_rect.end.y
 
-	draw_rect(Rect2(center_x - radius, floor_y - height + radius, width, height - radius), SILHOUETTE_COLOR)
-	draw_circle(Vector2(center_x, floor_y - height + radius), radius, SILHOUETTE_COLOR)
+	# StyleBoxFlat disegna un rettangolo arrotondato: qui solo i due angoli in alto, con raggio
+	# pari a metà larghezza, che insieme formano un semicerchio.
+	var shape: StyleBoxFlat = StyleBoxFlat.new()
+	shape.bg_color = SILHOUETTE_COLOR
+	shape.anti_aliasing = true
+	shape.corner_radius_top_left = int(width / 2.0)
+	shape.corner_radius_top_right = int(width / 2.0)
+	draw_style_box(shape, Rect2(center_x - width / 2.0, floor_y - height, width, height))
 
 
 ## Disegna le maniglie: tutte se la camera è solo selezionata, solo quella in uso durante

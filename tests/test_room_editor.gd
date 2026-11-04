@@ -23,6 +23,12 @@ const ONE_CELL_UP: Vector2 = Vector2(0.0, -RoomEditor.CELL_SIZE_PIXELS)
 const FAR_ABOVE_ENVELOPE: Vector2 = Vector2(0.0, -2000.0)
 ## Spostamento dal centro di una maniglia del soffitto alla sua parte fuori dalla camera.
 const OUTSIDE_ROOM_UP: Vector2 = Vector2(0.0, -10.0)
+## Frazione di cella poco sotto la metà: il lato è molto incurvato ma la regola non scatta.
+const NEAR_HALF_CELL_FRACTION: float = 0.45
+## Tempo di margine concesso all'animazione oltre la sua durata, in secondi.
+const ANIMATION_MARGIN_SECONDS: float = 0.1
+## Scarto accettato sulla curvatura a fine animazione, in pixel.
+const BEND_TOLERANCE_PIXELS: float = 0.01
 ## Punti di prova nelle quattro metà della camera, come frazioni delle sue misure.
 const UPPER_HALF: Vector2 = Vector2(0.5, 0.25)
 const LOWER_HALF: Vector2 = Vector2(0.5, 0.75)
@@ -298,6 +304,39 @@ func test_app_pause_cancels_drag() -> void:
 
 	assert_false(_editor.is_dragging())
 	assert_eq(_editor.room.cells, RoomEditor.INITIAL_ROOM_CELLS)
+
+
+## Al rilascio il lato incurvato deve raddrizzarsi con l'animazione, non di colpo: un salto
+## improvviso rovinerebbe proprio la sensazione elastica del gesto.
+## NOTA GDSCRIPT: «await» sospende il test finché il tempo indicato non è passato, mentre
+## Godot continua a far avanzare l'animazione.
+func test_bend_straightens_gradually_after_release() -> void:
+	var handle: Vector2 = _begin_ceiling_drag()
+	var below_half_cell: Vector2 = ONE_CELL_UP * NEAR_HALF_CELL_FRACTION
+	_move_finger(FIRST_FINGER, handle + below_half_cell)
+	var bend_while_dragging: Vector2 = _editor._bend
+	assert_ne(bend_while_dragging, Vector2.ZERO, "tra due celle il lato deve essere incurvato")
+
+	_touch(FIRST_FINGER, handle + below_half_cell, false)
+	# L'animazione non ha ancora fatto nessun passo: la curvatura deve essere ancora tutta lì.
+	assert_eq(_editor._bend, bend_while_dragging)
+
+	await wait_seconds(RoomEditor.SETTLE_SECONDS + ANIMATION_MARGIN_SECONDS)
+	assert_almost_eq(_editor._bend, Vector2.ZERO, Vector2.ONE * BEND_TOLERANCE_PIXELS)
+
+
+## Un nuovo trascinamento deve partire con il lato dritto, anche se l'assestamento precedente
+## era ancora in corso.
+func test_new_drag_clears_bend_of_previous_settle() -> void:
+	var handle: Vector2 = _begin_ceiling_drag()
+	var below_half_cell: Vector2 = ONE_CELL_UP * NEAR_HALF_CELL_FRACTION
+	_move_finger(FIRST_FINGER, handle + below_half_cell)
+	_touch(FIRST_FINGER, handle + below_half_cell, false)
+
+	_touch(FIRST_FINGER, _editor.get_handle_position(Room.MovableSide.CEILING) + OUTSIDE_ROOM_UP, true)
+
+	assert_true(_editor.is_dragging())
+	assert_eq(_editor._bend, Vector2.ZERO)
 
 
 ## Nelle camere da 1×1 le aree delle maniglie si sovrappongono: deve vincere la più vicina.

@@ -29,6 +29,10 @@ const NEAR_HALF_CELL_FRACTION: float = 0.45
 const ANIMATION_MARGIN_SECONDS: float = 0.1
 ## Scarto accettato sulla curvatura a fine animazione, in pixel.
 const BEND_TOLERANCE_PIXELS: float = 0.01
+## Ospite usato nei test.
+const GIRAFFE: Guest = preload("res://data/guests/giraffe.tres")
+## Seme fisso della fila usata nei test: con una sola specie l'ordine è comunque sempre lo stesso.
+const TEST_SEED: int = 1
 ## Punti di prova nelle quattro metà della camera, come frazioni delle sue misure.
 const UPPER_HALF: Vector2 = Vector2(0.5, 0.25)
 const LOWER_HALF: Vector2 = Vector2(0.5, 0.75)
@@ -43,6 +47,8 @@ var _editor: RoomEditor
 func before_each() -> void:
 	var scene: PackedScene = load(SCENE_PATH)
 	_editor = add_child_autofree(scene.instantiate())
+	# La giraffa non entra nelle camere iniziali: un tocco non fa partire turni per caso.
+	_editor.start_session(GuestQueue.new([GIRAFFE], TEST_SEED))
 
 
 ## Simula un dito che tocca o lascia lo schermo.
@@ -61,6 +67,13 @@ func _move_finger(finger: int, position: Vector2) -> void:
 	event.index = finger
 	event.position = position
 	_editor._gui_input(event)
+
+
+## Tocca e rilascia il centro della camera attiva nella sua forma attuale.
+func _tap_center_of_active_room() -> void:
+	var center: Vector2 = _point_in_room(Vector2(0.5, 0.5))
+	_touch(FIRST_FINGER, center, true)
+	_touch(FIRST_FINGER, center, false)
 
 
 ## Tocca il centro della camera, per selezionarla, e alza il dito.
@@ -346,6 +359,84 @@ func test_smallest_room_keeps_handles_separate() -> void:
 
 	for side: Room.MovableSide in Room.MovableSide.values():
 		assert_eq(_editor._find_handle_at(_editor.get_handle_position(side)), side)
+
+
+## Toccare la camera selezionata fa entrare l'ospite di turno e conclude il turno.
+func test_tapping_selected_room_hosts_current_guest() -> void:
+	_set_room_shape(Rect2i(2, 2, 2, 3))
+	_select_room_at_current_shape()
+	_tap_center_of_active_room()
+
+	assert_eq(_editor.room.guest, GIRAFFE)
+	assert_eq(_editor.session.turns_played, 1)
+	assert_eq(_editor.session.coins, GIRAFFE.comfortable_pay)
+
+
+## Se la camera non basta, l'ospite resta di turno: il giocatore può allungarla e riprovare.
+func test_guest_that_does_not_fit_stays_current() -> void:
+	_select_room()
+	_tap_center_of_active_room()
+
+	assert_null(_editor.room.guest)
+	assert_eq(_editor.session.turns_played, 0, "un tentativo fallito non consuma il turno")
+
+
+## La scena del concept: la giraffa non entra, si alza il soffitto e allora entra.
+func test_raising_ceiling_lets_guest_in() -> void:
+	_select_room()
+	_perform_inner_gesture(_point_in_room(UPPER_HALF), ONE_CELL_UP)
+	_tap_center_of_active_room()
+
+	assert_eq(_editor.room.guest, GIRAFFE)
+
+
+## Un trascinamento è gratis: non fa entrare nessuno e non consuma turni (D-026).
+func test_drag_does_not_host_guest_or_use_turn() -> void:
+	_select_room()
+
+	_perform_inner_gesture(_point_in_room(UPPER_HALF), ONE_CELL_UP)
+
+	assert_null(_editor.room.guest)
+	assert_eq(_editor.session.turns_played, 0)
+
+
+## Un tocco interrotto dal sistema non è una scelta del giocatore.
+func test_canceled_tap_does_not_host_guest() -> void:
+	_set_room_shape(Rect2i(2, 2, 2, 3))
+	_select_room_at_current_shape()
+
+	var center: Vector2 = _point_in_room(Vector2(0.5, 0.5))
+	_touch(FIRST_FINGER, center, true)
+	_touch(FIRST_FINGER, center, false, true)
+
+	assert_null(_editor.room.guest)
+
+
+## Rifiutare conclude il turno senza far entrare nessuno.
+func test_refusing_ends_turn() -> void:
+	_editor.refuse_current_guest()
+
+	assert_eq(_editor.session.turns_played, 1)
+	assert_null(_editor.room.guest)
+
+
+## Un secondo dito sul pulsante non deve cambiare la partita durante un trascinamento.
+func test_refusing_is_ignored_during_drag() -> void:
+	_begin_ceiling_drag()
+
+	_editor.refuse_current_guest()
+
+	assert_eq(_editor.session.turns_played, 0)
+
+
+## Durante un gesto valido l'ospite viene giudicato sulla forma prevista.
+func test_displayed_cells_follow_valid_preview() -> void:
+	_select_room()
+	var start: Vector2 = _point_in_room(UPPER_HALF)
+	_touch(FIRST_FINGER, start, true)
+	_move_finger(FIRST_FINGER, start + ONE_CELL_UP)
+
+	assert_eq(_editor._get_displayed_cells(_editor.room), Rect2i(2, 3, 2, 3))
 
 
 ## Restituisce la seconda camera, quella che all'avvio condivide una parete con la prima.

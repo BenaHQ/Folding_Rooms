@@ -4,7 +4,8 @@ extends Control
 ##
 ## COSA FA: disegna involucro, griglia e camere, riceve i tocchi e mostra in tempo reale il
 ## risultato previsto, anche sulla camera vicina coinvolta. Al rilascio conferma la modifica
-## e anima l'assestamento.
+## e anima l'assestamento. Mostra gli ospiti: toccando la camera selezionata vi entra l'ospite di
+## turno, e il turno si conclude (D-026).
 ## CHI LA USA: la scena principale main.tscn, che la contiene come nodo figlio.
 ## PERCHÉ È SEPARATA: tiene insieme disegno e tocco. Le regole stanno in Grid e il
 ## calcolo del gesto in RoomDrag, così si possono provare senza grafica. Questa scena
@@ -19,6 +20,9 @@ extends Control
 ## COORDINATE: l'origine del nodo è in alto a sinistra; X cresce verso destra e Y verso
 ## il basso. Le misure della camera sono in pixel a partire dall'angolo in alto a
 ## sinistra dell'involucro, così non dipendono dalla forma dello schermo.
+
+## Lanciato quando la partita cambia: nuovo turno, monete, ospiti.
+signal session_changed
 
 ## Valore di «nessun dito» e di «nessuna maniglia»: gli indici veri partono da zero.
 const NONE: int = -1
@@ -55,12 +59,39 @@ const MAX_BEND_PIXELS: float = 18.0
 ## Quanti tratti dritti compongono ogni lato disegnato: abbastanza da sembrare curvo.
 const SEGMENTS_PER_SIDE: int = 12
 
-## Larghezza della sagoma di prova, in celle. Serve a giudicare il gesto: è un ospite
-## finto, senza regole; quelli veri arrivano nella fase 5 della scaletta.
-const SILHOUETTE_WIDTH_CELLS: float = 0.5
-## Altezza della sagoma di prova, in celle: più alta della camera iniziale, così si vede
-## la testa uscire dal soffitto finché la camera non viene allungata.
-const SILHOUETTE_HEIGHT_CELLS: float = 2.8
+## Raggio delle icone dell'ospite, in pixel.
+const GUEST_ICON_RADIUS_PIXELS: float = 28.0
+## Distanza tra il centro dell'icona del risultato e quelle dell'ospite, in pixel.
+const GUEST_ICON_SPACING_PIXELS: float = 76.0
+## Distanza delle icone sopra la camera o sopra la testa dell'ospite, se è più in alto, in pixel,
+## quando nessun dito trascina: così le icone non coprono il viso.
+const GUEST_ICON_ABOVE_ROOM_PIXELS: float = 40.0
+## Durata della reazione di un ospite che entra, in secondi.
+const REACTION_SECONDS: float = 0.8
+## Forma di partenza della reazione, come scala del corpo: chi sta bene si distende verso
+## l'alto e chi non sta bene si affloscia.
+const HAPPY_REACTION_SCALE: Vector2 = Vector2(0.8, 1.25)
+const SAD_REACTION_SCALE: Vector2 = Vector2(1.15, 0.75)
+## Ampiezza dello scuotimento quando un ospite non può entrare, in pixel.
+const SHAKE_PIXELS: float = 24.0
+## Raggio dell'icona con i turni rimasti, in pixel.
+const TURNS_BADGE_RADIUS_PIXELS: float = 22.0
+## Distanza del centro di quell'icona dall'angolo in alto a sinistra della camera, in pixel.
+const TURNS_BADGE_INSET_PIXELS: float = 34.0
+## Spazio tra quell'icona e il numero, in pixel.
+const TURNS_TEXT_GAP_PIXELS: float = 4.0
+## Dimensione del testo piccolo, per i turni rimasti, in pixel.
+const SMALL_FONT_PIXELS: int = 28
+## Dimensione del testo dei guadagni, in pixel.
+const EARNING_FONT_PIXELS: int = 44
+## Larghezza riservata a un numero disegnato, in pixel.
+const NUMBER_WIDTH_PIXELS: float = 120.0
+## Di quanto scendere per centrare un numero piccolo in altezza, in pixel.
+const SMALL_TEXT_BASELINE_PIXELS: float = 10.0
+## Durata della comparsa dei guadagni, in secondi.
+const EARNING_SECONDS: float = 1.1
+## Di quanti pixel sale il guadagno durante la comparsa.
+const EARNING_RISE_PIXELS: float = 70.0
 
 ## Raggio dell'icona del risultato, in pixel.
 const STATUS_RADIUS_PIXELS: float = 36.0
@@ -97,6 +128,8 @@ var rooms: Array[Room] = []
 ## La camera attiva: quella selezionata, oppure l'ultima usata. Gli altri script la leggono
 ## soltanto: le modifiche passano da Grid.
 var room: Room
+## La partita in corso: fila degli ospiti, turni e monete.
+var session: HotelSession
 
 ## La griglia con le regole.
 var _grid: Grid
@@ -124,6 +157,16 @@ var _bent_side: Room.MovableSide = Room.MovableSide.CEILING
 var _handles_scale: float = 0.0
 ## L'animazione di assestamento in corso, per poterla fermare a un nuovo tocco.
 var _settle_tween: Tween = null
+## La camera il cui ospite sta reagendo, oppure null.
+var _reacting_room: Room = null
+## Scala attuale del corpo dell'ospite che reagisce: 1 è la misura normale.
+var _reaction_scale: Vector2 = Vector2.ONE
+## Spostamento orizzontale attuale dell'ospite che non può entrare, in pixel.
+var _shake_offset_pixels: float = 0.0
+## I guadagni dell'ultimo turno, da mostrare sopra le camere.
+var _shown_earnings: Dictionary[Room, int] = {}
+## Avanzamento della comparsa dei guadagni: da 0 (appena iniziata) a 1 (finita).
+var _earning_progress: float = 1.0
 ## Chi disegna l'interno e il muro di ogni camera (prova di stile, D-018).
 var _painters: Dictionary[Room, RoomPainter] = {}
 
@@ -139,6 +182,9 @@ func _ready() -> void:
 	_add_initial_room(INITIAL_ROOM_CELLS, RoomPainter.new())
 	_add_initial_room(SECOND_ROOM_CELLS, RoomPainter.new(RoomPainter.ROSE_WALLPAPER_LIGHT, RoomPainter.ROSE_WALLPAPER_DARK, RoomPainter.ROSE_WAINSCOT_COLOR))
 	room = rooms[0]
+
+	# randi() dà un numero casuale: ogni partita ha un ordine di arrivo diverso.
+	start_session(GuestQueue.new(GuestQueue.PROTOTYPE_GUESTS, randi()))
 
 
 ## Godot chiama _gui_input() per ogni evento di tocco che arriva a questo nodo.
@@ -177,6 +223,8 @@ func _draw() -> void:
 	if _drag != null:
 		_draw_target_outline(origin)
 		_draw_status_icon()
+	_draw_guest_icons(origin)
+	_draw_earnings(origin)
 
 
 ## Restituisce true se un dito sta trascinando un lato.
@@ -187,6 +235,21 @@ func is_dragging() -> bool:
 ## Restituisce true se una camera è selezionata: è sempre quella attiva, room.
 func is_room_selected() -> bool:
 	return _is_room_selected
+
+
+## Inizia una partita con la fila indicata. Le camere restano come sono.
+func start_session(queue: GuestQueue) -> void:
+	session = HotelSession.new(_grid, queue)
+	session_changed.emit()
+
+
+## Rifiuta l'ospite di turno e conclude il turno. Durante un trascinamento non fa nulla: un secondo
+## dito sul pulsante non deve cambiare la partita mentre il primo sposta una parete.
+func refuse_current_guest() -> void:
+	if _drag != null:
+		return
+
+	_apply_turn_report(session.refuse_current_guest(), null)
 
 
 ## Restituisce l'angolo in alto a sinistra dell'involucro, in pixel del nodo: l'involucro
@@ -237,8 +300,12 @@ func _handle_touch(touch: InputEventScreenTouch) -> void:
 	if touch.pressed:
 		_handle_press(touch)
 	elif _drag == null:
-		# Il dito si è alzato prima che il gesto fosse riconosciuto: era un semplice tocco.
+		# Il dito si è alzato prima che il gesto fosse riconosciuto: era un semplice tocco. Se
+		# era sulla camera selezionata, serve a far entrare l'ospite di turno.
+		var was_tap_on_room: bool = _is_recognizing_gesture and not touch.canceled
 		_clear_drag()
+		if was_tap_on_room:
+			_try_host_current_guest()
 	elif touch.canceled:
 		# Un tocco annullato dal sistema non è una scelta del giocatore: non si conferma.
 		_cancel_drag()
@@ -272,6 +339,84 @@ func _handle_press(touch: InputEventScreenTouch) -> void:
 		_select_room(touched_room)
 	else:
 		_set_room_selected(false)
+
+
+## Prova a far entrare l'ospite di turno nella camera attiva. Se non può, lo scuote: il motivo si
+## legge già dalla sua icona. HotelSession decide; questa funzione mostra soltanto il risultato.
+func _try_host_current_guest() -> void:
+	var report: TurnReport = session.host_current_guest(room)
+
+	if report == null:
+		create_tween().tween_method(_set_shake_offset, SHAKE_PIXELS, 0.0, RETURN_SECONDS).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	else:
+		_apply_turn_report(report, room)
+
+
+## Mostra il risultato di un turno concluso. hosting_room è la camera in cui un ospite è appena
+## entrato, oppure null se l'ospite è stato rifiutato.
+func _apply_turn_report(report: TurnReport, hosting_room: Room) -> void:
+	session_changed.emit()
+
+	# Un ospite che resta un solo turno è già partito: non c'è nessuno che possa reagire.
+	if hosting_room != null and hosting_room.guest != null:
+		_play_reaction(hosting_room)
+
+	_shown_earnings = report.earnings
+	create_tween().tween_method(_set_earning_progress, 0.0, 1.0, EARNING_SECONDS)
+	queue_redraw()
+
+
+## Imposta l'avanzamento dei guadagni. La chiama il Tween durante l'animazione.
+func _set_earning_progress(value: float) -> void:
+	_earning_progress = value
+	queue_redraw()
+
+
+## Anima la reazione dell'ospite appena entrato, diversa se sta bene oppure no (D-019).
+func _play_reaction(target_room: Room) -> void:
+	var is_happy: bool = target_room.guest.need.evaluate(target_room.cells.size) == Need.Fit.COMFORTABLE
+	var start_scale: Vector2 = HAPPY_REACTION_SCALE if is_happy else SAD_REACTION_SCALE
+	var transition: Tween.TransitionType = Tween.TRANS_ELASTIC if is_happy else Tween.TRANS_SINE
+
+	_reacting_room = target_room
+	create_tween().tween_method(_set_reaction_scale, start_scale, Vector2.ONE, REACTION_SECONDS).set_trans(transition).set_ease(Tween.EASE_OUT)
+
+
+## Imposta la scala della reazione. La chiama il Tween durante l'animazione.
+func _set_reaction_scale(value: Vector2) -> void:
+	_reaction_scale = value
+	queue_redraw()
+
+
+## Imposta lo scuotimento. La chiama il Tween durante l'animazione.
+func _set_shake_offset(value: float) -> void:
+	_shake_offset_pixels = value
+	queue_redraw()
+
+
+## Restituisce l'ospite da mostrare in una camera: il suo, oppure quello di turno se la camera è
+## selezionata e libera. Può essere null.
+func _get_shown_guest(target_room: Room) -> Guest:
+	if target_room.guest != null:
+		return target_room.guest
+
+	if target_room == room and _is_room_selected:
+		return session.get_current_guest()
+
+	return null
+
+
+## Restituisce le celle su cui giudicare come starebbe l'ospite: durante un gesto valido, quelle
+## previste, così il viso cambia mentre il dito si muove.
+func _get_displayed_cells(target_room: Room) -> Rect2i:
+	if _drag != null and _drag.preview.is_valid():
+		if target_room == room:
+			return _drag.preview.resulting_cells
+		for change: RoomChange in _drag.preview.neighbor_changes:
+			if change.room == target_room:
+				return change.resulting_cells
+
+	return target_room.cells
 
 
 ## Rende attiva una camera e ne fa comparire le maniglie.
@@ -491,8 +636,7 @@ func _draw_envelope(origin: Vector2) -> void:
 
 
 ## Disegna una camera con l'eventuale lato incurvato. Interno e muro sono compito del suo
-## RoomPainter. La sagoma di prova compare solo nella camera selezionata e sta tra i due, così
-## i suoi piedi restano dietro il muro.
+## RoomPainter. L'ospite sta tra i due, così i suoi piedi restano dietro il muro.
 func _draw_room(origin: Vector2, target_room: Room) -> void:
 	var visual_rect: Rect2 = _visual_rects[target_room]
 	var rect: Rect2 = Rect2(origin + visual_rect.position, visual_rect.size)
@@ -500,9 +644,11 @@ func _draw_room(origin: Vector2, target_room: Room) -> void:
 	var painter: RoomPainter = _painters[target_room]
 
 	painter.paint_interior(self, outline, rect, origin)
-	if target_room == room and _is_room_selected:
-		_draw_silhouette(rect)
+	_draw_room_guest(rect, target_room)
 	painter.paint_frame(self, outline)
+
+	if target_room.guest != null:
+		_draw_turns_badge(rect, target_room.turns_left)
 
 
 ## Restituisce il lato di una camera che ora va incurvato, oppure NONE. La camera attiva curva
@@ -560,23 +706,68 @@ func _append_side_points(points: PackedVector2Array, from: Vector2, to: Vector2,
 		points.append(from.lerp(to, t) + bend * 4.0 * t * (1.0 - t))
 
 
-## Disegna la sagoma di prova appoggiata al pavimento: una sola forma con la cima tonda, così
-## la trasparenza resta uniforme. Non viene tagliata dal soffitto, così si vede subito se la
-## camera è troppo bassa.
-func _draw_silhouette(room_rect: Rect2) -> void:
-	var width: float = SILHOUETTE_WIDTH_CELLS * CELL_SIZE_PIXELS
-	var height: float = SILHOUETTE_HEIGHT_CELLS * CELL_SIZE_PIXELS
-	var center_x: float = room_rect.get_center().x
-	var floor_y: float = room_rect.end.y
+## Disegna nell'angolo della camera quanti turni resta l'ospite.
+func _draw_turns_badge(room_rect: Rect2, turns_left: int) -> void:
+	var center: Vector2 = room_rect.position + Vector2.ONE * TURNS_BADGE_INSET_PIXELS
+	GuestPainter.draw_stay_icon(self, center, TURNS_BADGE_RADIUS_PIXELS)
+	var text_position: Vector2 = center + Vector2(TURNS_BADGE_RADIUS_PIXELS + TURNS_TEXT_GAP_PIXELS, SMALL_TEXT_BASELINE_PIXELS)
+	draw_string(ThemeDB.fallback_font, text_position, str(turns_left), HORIZONTAL_ALIGNMENT_LEFT, NUMBER_WIDTH_PIXELS, SMALL_FONT_PIXELS, GuestPainter.INK_COLOR)
 
-	# StyleBoxFlat disegna un rettangolo arrotondato: qui solo i due angoli in alto, con raggio
-	# pari a metà larghezza, che insieme formano un semicerchio.
-	var shape: StyleBoxFlat = StyleBoxFlat.new()
-	shape.bg_color = SILHOUETTE_COLOR
-	shape.anti_aliasing = true
-	shape.corner_radius_top_left = int(width / 2.0)
-	shape.corner_radius_top_right = int(width / 2.0)
-	draw_style_box(shape, Rect2(center_x - width / 2.0, floor_y - height, width, height))
+
+## Disegna i guadagni dell'ultimo turno: salgono sopra ogni camera e svaniscono.
+func _draw_earnings(origin: Vector2) -> void:
+	if _earning_progress >= 1.0:
+		return
+
+	var color: Color = GuestPainter.INK_COLOR
+	color.a = 1.0 - _earning_progress
+
+	for each_room: Room in _shown_earnings:
+		var rect: Rect2 = _visual_rects[each_room]
+		# Parte da metà camera: più in alto finirebbe sotto le icone dell'ospite.
+		var position: Vector2 = origin + Vector2(rect.position.x, rect.get_center().y - EARNING_RISE_PIXELS * _earning_progress)
+		var text: String = "+%d" % _shown_earnings[each_room]
+		draw_string(ThemeDB.fallback_font, position, text, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, EARNING_FONT_PIXELS, color)
+
+
+## Disegna l'ospite di una camera, appoggiato al centro del pavimento. Non viene tagliato dalle
+## pareti, così si vede subito se la camera è troppo piccola. room_rect è in pixel del nodo.
+func _draw_room_guest(room_rect: Rect2, target_room: Room) -> void:
+	var guest: Guest = _get_shown_guest(target_room)
+	if guest == null:
+		return
+
+	var fit: Need.Fit = guest.need.evaluate(_get_displayed_cells(target_room).size)
+	var is_preview: bool = target_room.guest == null
+	var pose_scale: Vector2 = _reaction_scale if target_room == _reacting_room else Vector2.ONE
+	var floor_center: Vector2 = Vector2(room_rect.get_center().x, room_rect.end.y)
+	if is_preview:
+		floor_center.x += _shake_offset_pixels
+
+	GuestPainter.draw_guest(self, guest, floor_center, CELL_SIZE_PIXELS, fit, pose_scale, is_preview)
+
+
+## Disegna le icone dell'ospite mostrato nella camera attiva: il bisogno e come starebbe. Durante
+## il gesto stanno accanto all'icona del risultato, sopra il dito; altrimenti sopra la camera.
+func _draw_guest_icons(origin: Vector2) -> void:
+	var guest: Guest = _get_shown_guest(room)
+	if guest == null or not _is_room_selected:
+		return
+
+	var center: Vector2
+	if _drag != null:
+		center = _get_status_icon_center() + Vector2(-GUEST_ICON_SPACING_PIXELS, 0.0)
+		# Vicino al bordo sinistro le icone si spostano dall'altra parte, per restare visibili.
+		if center.x - GUEST_ICON_SPACING_PIXELS < GUEST_ICON_RADIUS_PIXELS:
+			center = _get_status_icon_center() + Vector2(2.0 * GUEST_ICON_SPACING_PIXELS, 0.0)
+	else:
+		var rect: Rect2 = _visual_rects[room]
+		var guest_top: float = rect.end.y - guest.body_size_cells.y * CELL_SIZE_PIXELS
+		center = origin + Vector2(rect.get_center().x + GUEST_ICON_SPACING_PIXELS / 2.0, minf(rect.position.y, guest_top) - GUEST_ICON_ABOVE_ROOM_PIXELS)
+
+	var fit: Need.Fit = guest.need.evaluate(_get_displayed_cells(room).size)
+	GuestPainter.draw_fit_icon(self, fit, center, GUEST_ICON_RADIUS_PIXELS)
+	GuestPainter.draw_need_icon(self, guest.need.shape, center + Vector2(-GUEST_ICON_SPACING_PIXELS, 0.0), GUEST_ICON_RADIUS_PIXELS)
 
 
 ## Disegna le maniglie: tutte se la camera è solo selezionata, solo quella in uso durante
@@ -628,16 +819,19 @@ func _draw_cells_outline(origin: Vector2, cells: Rect2i, color: Color) -> void:
 	draw_rect(rect, color, false, THICK_LINE_PIXELS)
 
 
+## Restituisce il centro dell'icona del risultato, in pixel del nodo. Vicino ai bordi l'icona
+## deve restare dentro lo schermo: clampf() limita un valore tra un minimo e un massimo.
+func _get_status_icon_center() -> Vector2:
+	var center: Vector2 = _finger_position + Vector2(0.0, -STATUS_DISTANCE_ABOVE_FINGER_PIXELS)
+	center.x = clampf(center.x, STATUS_RADIUS_PIXELS, size.x - STATUS_RADIUS_PIXELS)
+	center.y = clampf(center.y, STATUS_RADIUS_PIXELS, size.y - STATUS_RADIUS_PIXELS)
+	return center
+
+
 ## Disegna sopra il dito l'icona del risultato: un segno di spunta se la modifica è
 ## permessa, una X se è rifiutata. La forma dice l'esito anche a chi non distingue i colori.
 func _draw_status_icon() -> void:
-	var center: Vector2 = _finger_position + Vector2(0.0, -STATUS_DISTANCE_ABOVE_FINGER_PIXELS)
-
-	# Vicino ai bordi l'icona deve restare dentro lo schermo. clamp() limita un valore
-	# tra un minimo e un massimo.
-	center.x = clampf(center.x, STATUS_RADIUS_PIXELS, size.x - STATUS_RADIUS_PIXELS)
-	center.y = clampf(center.y, STATUS_RADIUS_PIXELS, size.y - STATUS_RADIUS_PIXELS)
-
+	var center: Vector2 = _get_status_icon_center()
 	var is_valid: bool = _drag.preview.is_valid()
 	var color: Color = VALID_COLOR if is_valid else INVALID_COLOR
 

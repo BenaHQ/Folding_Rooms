@@ -32,6 +32,10 @@ const MIN_HEIGHT_CELLS: int = 1
 ## Le celle occupate dalla camera. Le regole di Grid controllano ogni modifica:
 ## non cambiare questo valore senza passare da Grid.
 var cells: Rect2i
+## L'ospite della camera, oppure null se è libera. Le modifiche passano da Grid.
+var guest: Guest = null
+## Quanti turni resta l'ospite, compreso quello in corso. Vale 0 se la camera è libera.
+var turns_left: int = 0
 
 
 ## Crea una camera che occupa il rettangolo indicato, in celle.

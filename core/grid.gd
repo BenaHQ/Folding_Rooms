@@ -16,6 +16,9 @@ extends RefCounted
 ## restano rettangolari: se la parete non copre tutto il lato dell'altra camera, spingere è
 ## rifiutato. Una camera non viene mai cancellata e la spinta non passa a quella dietro.
 
+## OSPITI (decisione D-019): un ospite entra solo se la camera ha la misura per entrare. Una
+## modifica che lascerebbe fuori un ospite già presente è rifiutata: non viene mai scacciato.
+
 ## L'involucro dentro cui devono stare tutte le camere.
 var _envelope: Envelope
 ## Le camere presenti nella griglia. Array[Room] è un elenco che accetta solo camere.
@@ -57,6 +60,9 @@ func preview_resize(room: Room, side: Room.MovableSide, offset_cells: int) -> Re
 	if rejection != ResizePreview.Rejection.NONE:
 		return ResizePreview.new(new_cells, rejection)
 
+	if not _guest_would_fit(room, new_cells):
+		return ResizePreview.new(new_cells, ResizePreview.Rejection.GUEST_WOULD_NOT_FIT)
+
 	return _preview_with_neighbors(room, side, new_cells)
 
 
@@ -72,6 +78,32 @@ func resize_room(room: Room, side: Room.MovableSide, offset_cells: int) -> Resiz
 			change.room.cells = change.resulting_cells
 
 	return preview
+
+
+## Fa entrare un ospite in una camera libera, se ci può entrare. Restituisce true se è entrato.
+func assign_guest(guest: Guest, room: Room) -> bool:
+	if room.guest != null or guest.need.evaluate(room.cells.size) == Need.Fit.DOES_NOT_FIT:
+		return false
+
+	room.guest = guest
+	room.turns_left = guest.stay_turns
+	return true
+
+
+## Fa uscire l'ospite da una camera. Se è già libera non succede nulla.
+func remove_guest(room: Room) -> void:
+	room.guest = null
+	room.turns_left = 0
+
+
+## Restituisce le camere della griglia. L'elenco va solo letto: si aggiunge con add_room().
+func get_rooms() -> Array[Room]:
+	return _rooms
+
+
+## Restituisce true se l'ospite della camera, se c'è, entrerebbe ancora in cells.
+func _guest_would_fit(room: Room, cells: Rect2i) -> bool:
+	return room.guest == null or room.guest.need.evaluate(cells.size) != Need.Fit.DOES_NOT_FIT
 
 
 ## Controlla la forma di un rettangolo di celle, senza guardare le altre camere: restituisce
@@ -110,6 +142,9 @@ func _preview_with_neighbors(room: Room, side: Room.MovableSide, new_cells: Rect
 		var other_cells: Rect2i = other_room.cells_after_moving(facing_side, new_wall - other_wall)
 		if not Room.has_allowed_size(other_cells):
 			return ResizePreview.new(new_cells, ResizePreview.Rejection.NEIGHBOR_TOO_SMALL, [], other_room)
+
+		if not _guest_would_fit(other_room, other_cells):
+			return ResizePreview.new(new_cells, ResizePreview.Rejection.GUEST_WOULD_NOT_FIT, [], other_room)
 
 		changes.append(RoomChange.new(other_room, other_cells))
 

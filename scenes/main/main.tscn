@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scenes/main/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/room_editor/room_editor.tscn" id="2_room_editor"]
+[ext_resource type="PackedScene" path="res://ui/guest_bar/guest_bar.tscn" id="3_guest_bar"]
+[ext_resource type="PackedScene" path="res://ui/hud/hud.tscn" id="4_hud"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -18,4 +20,10 @@ anchor_bottom = 1.0
 color = Color(0.96, 0.91, 0.82, 1)
 
 [node name="RoomEditor" parent="." instance=ExtResource("2_room_editor")]
+layout_mode = 1
+
+[node name="GuestBar" parent="." instance=ExtResource("3_guest_bar")]
+layout_mode = 1
+
+[node name="Hud" parent="." instance=ExtResource("4_hud")]
 layout_mode = 1

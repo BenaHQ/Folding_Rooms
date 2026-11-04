@@ -2,9 +2,9 @@ class_name RoomEditor
 extends Control
 ## Scena del gesto: si tocca una camera e se ne trascinano i lati.
 ##
-## COSA FA: disegna involucro, griglia e camera con forme segnaposto, riceve i tocchi
-## e mostra in tempo reale il risultato previsto. Al rilascio conferma la modifica e
-## anima l'assestamento.
+## COSA FA: disegna involucro, griglia e camere, riceve i tocchi e mostra in tempo reale il
+## risultato previsto, anche sulla camera vicina coinvolta. Al rilascio conferma la modifica
+## e anima l'assestamento.
 ## CHI LA USA: la scena principale main.tscn, che la contiene come nodo figlio.
 ## PERCHÉ È SEPARATA: tiene insieme disegno e tocco. Le regole stanno in Grid e il
 ## calcolo del gesto in RoomDrag, così si possono provare senza grafica. Questa scena
@@ -26,8 +26,12 @@ const NONE: int = -1
 ## Lato di una cella, in pixel dell'area di riferimento. Con 6 colonne lascia 30 pixel
 ## di margine per lato sui 720 di larghezza.
 const CELL_SIZE_PIXELS: float = 110.0
-## Celle occupate dalla camera all'avvio: lasciano spazio libero intorno per provare.
+## Celle occupate dalla prima camera all'avvio: lasciano spazio libero intorno per provare.
 const INITIAL_ROOM_CELLS: Rect2i = Rect2i(2, 4, 2, 2)
+## Celle della seconda camera all'avvio: tocca la prima, così le due condividono una parete.
+const SECOND_ROOM_CELLS: Rect2i = Rect2i(4, 4, 2, 2)
+## Scarto entro cui due lati disegnati contano come lo stesso muro, in pixel.
+const SAME_WALL_TOLERANCE_PIXELS: float = 0.5
 
 ## Quanti pixel deve percorrere il dito prima che il gesto dall'interno della camera venga
 ## riconosciuto: sotto questa distanza la direzione non è ancora affidabile.
@@ -88,7 +92,10 @@ const THICK_LINE_PIXELS: float = 5.0
 ## Spessore delle linee della griglia, in pixel.
 const THIN_LINE_PIXELS: float = 1.5
 
-## La camera mostrata. Gli altri script la leggono soltanto: le modifiche passano da Grid.
+## Tutte le camere, nell'ordine in cui sono state create.
+var rooms: Array[Room] = []
+## La camera attiva: quella selezionata, oppure l'ultima usata. Gli altri script la leggono
+## soltanto: le modifiche passano da Grid.
 var room: Room
 
 ## La griglia con le regole.
@@ -106,8 +113,9 @@ var _drag_finger_index: int = NONE
 var _drag_start_position: Vector2 = Vector2.ZERO
 ## Ultima posizione di quel dito, in pixel del nodo.
 var _finger_position: Vector2 = Vector2.ZERO
-## Il rettangolo in cui si disegna ora la camera, in pixel dall'angolo dell'involucro.
-var _visual_rect: Rect2 = Rect2()
+## Il rettangolo in cui si disegna ora ogni camera, in pixel dall'angolo dell'involucro. Un
+## Dictionary associa a ogni chiave, qui una camera, un valore.
+var _visual_rects: Dictionary[Room, Rect2] = {}
 ## Curvatura attuale del lato trascinato: direzione e ampiezza, in pixel.
 var _bend: Vector2 = Vector2.ZERO
 ## Il lato che si incurva: resta valido anche durante l'assestamento dopo il rilascio.
@@ -116,25 +124,21 @@ var _bent_side: Room.MovableSide = Room.MovableSide.CEILING
 var _handles_scale: float = 0.0
 ## L'animazione di assestamento in corso, per poterla fermare a un nuovo tocco.
 var _settle_tween: Tween = null
-## Chi disegna l'interno e il muro della camera (prova di stile).
-var _painter: RoomPainter = RoomPainter.new()
+## Chi disegna l'interno e il muro di ogni camera (prova di stile, D-018).
+var _painters: Dictionary[Room, RoomPainter] = {}
 
 
 ## Godot chiama _ready() una sola volta, quando il nodo entra nella scena: qui si crea
 ## lo stato iniziale.
 func _ready() -> void:
 	_grid = Grid.new(Envelope.new())
-	room = Room.new(INITIAL_ROOM_CELLS)
 
 	# Le immagini di RoomPainter sono piccole e devono ripetersi invece di fermarsi al bordo.
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 
-	# La camera iniziale rispetta le regole per costruzione: se non fosse così sarebbe
-	# un errore di programmazione da far notare subito.
-	if not _grid.add_room(room):
-		push_error("La camera iniziale non rispetta le regole della griglia.")
-
-	_visual_rect = _cells_to_pixels(room.cells)
+	_add_initial_room(INITIAL_ROOM_CELLS, RoomPainter.new())
+	_add_initial_room(SECOND_ROOM_CELLS, RoomPainter.new(RoomPainter.ROSE_WALLPAPER_LIGHT, RoomPainter.ROSE_WALLPAPER_DARK, RoomPainter.ROSE_WAINSCOT_COLOR))
+	room = rooms[0]
 
 
 ## Godot chiama _gui_input() per ogni evento di tocco che arriva a questo nodo.
@@ -162,7 +166,13 @@ func _notification(what: int) -> void:
 func _draw() -> void:
 	var origin: Vector2 = get_envelope_origin()
 	_draw_envelope(origin)
-	_draw_room(origin)
+
+	# Ciò che è disegnato dopo sta sopra: la camera attiva copre la vicina.
+	for other_room: Room in rooms:
+		if other_room != room:
+			_draw_room(origin, other_room)
+	_draw_room(origin, room)
+
 	_draw_handles()
 	if _drag != null:
 		_draw_target_outline(origin)
@@ -174,7 +184,7 @@ func is_dragging() -> bool:
 	return _drag != null
 
 
-## Restituisce true se la camera è selezionata.
+## Restituisce true se una camera è selezionata: è sempre quella attiva, room.
 func is_room_selected() -> bool:
 	return _is_room_selected
 
@@ -188,8 +198,9 @@ func get_envelope_origin() -> Vector2:
 ## Restituisce il centro di una maniglia, in pixel del nodo. Con il lato incurvato il
 ## centro segue la curva, così la maniglia resta attaccata alla parete.
 func get_handle_position(side: Room.MovableSide) -> Vector2:
-	var center: Vector2 = get_envelope_origin() + _visual_rect.get_center()
-	var half_size: Vector2 = _visual_rect.size / 2.0
+	var active_rect: Rect2 = _visual_rects[room]
+	var center: Vector2 = get_envelope_origin() + active_rect.get_center()
+	var half_size: Vector2 = active_rect.size / 2.0
 	var bend: Vector2 = _bend if side == _bent_side else Vector2.ZERO
 
 	match side:
@@ -201,6 +212,19 @@ func get_handle_position(side: Room.MovableSide) -> Vector2:
 			return center + Vector2(0.0, -half_size.y) + bend
 		_:
 			return center + Vector2(0.0, half_size.y) + bend
+
+
+## Crea una camera iniziale. La posizione rispetta le regole per costruzione: se non fosse
+## così sarebbe un errore di programmazione da far notare subito.
+func _add_initial_room(cells: Rect2i, painter: RoomPainter) -> void:
+	var new_room: Room = Room.new(cells)
+	if not _grid.add_room(new_room):
+		push_error("Una camera iniziale non rispetta le regole della griglia.")
+		return
+
+	rooms.append(new_room)
+	_painters[new_room] = painter
+	_visual_rects[new_room] = _cells_to_pixels(cells)
 
 
 ## Gestisce un dito che tocca o lascia lo schermo.
@@ -224,27 +248,57 @@ func _handle_touch(touch: InputEventScreenTouch) -> void:
 
 ## Decide che cosa significa un dito appena appoggiato.
 func _handle_press(touch: InputEventScreenTouch) -> void:
-	var room_rect: Rect2 = Rect2(get_envelope_origin() + _visual_rect.position, _visual_rect.size)
-	var is_on_room: bool = room_rect.has_point(touch.position)
+	var touched_room: Room = _find_room_at(touch.position)
 
 	# Il primo tocco serve solo a selezionare. Il gesto non parte subito, così in futuro un
 	# trascinamento su una camera non selezionata potrà far scorrere l'edificio.
 	if not _is_room_selected:
-		_set_room_selected(is_on_room)
+		if touched_room != null:
+			_select_room(touched_room)
 		return
 
 	# Dentro la camera non si conosce ancora il lato: lo dirà il primo movimento del dito.
-	if is_on_room:
+	if touched_room == room:
 		_is_recognizing_gesture = true
 		_drag_finger_index = touch.index
 		_drag_start_position = touch.position
 		return
 
+	# Le maniglie della camera attiva sporgono sopra la vicina e hanno la precedenza su di essa.
 	var handle: int = _find_handle_at(touch.position)
-	if handle == NONE:
-		_set_room_selected(false)
-	else:
+	if handle != NONE:
 		_begin_drag(handle, touch.index, touch.position)
+	elif touched_room != null:
+		_select_room(touched_room)
+	else:
+		_set_room_selected(false)
+
+
+## Rende attiva una camera e ne fa comparire le maniglie.
+func _select_room(target_room: Room) -> void:
+	room = target_room
+	_is_room_selected = false
+	_handles_scale = 0.0
+	_set_room_selected(true)
+
+
+## Restituisce la camera disegnata sotto un punto, oppure null. La camera attiva viene
+## controllata per prima perché è disegnata sopra le altre.
+func _find_room_at(point: Vector2) -> Room:
+	if _is_point_on_room(point, room):
+		return room
+
+	for other_room: Room in rooms:
+		if _is_point_on_room(point, other_room):
+			return other_room
+
+	return null
+
+
+## Restituisce true se il punto, in pixel del nodo, cade sul disegno della camera.
+func _is_point_on_room(point: Vector2, target_room: Room) -> bool:
+	var rect: Rect2 = _visual_rects[target_room]
+	return Rect2(get_envelope_origin() + rect.position, rect.size).has_point(point)
 
 
 ## Mostra o nasconde le maniglie con una breve animazione.
@@ -266,7 +320,8 @@ func _set_room_selected(selected: bool) -> void:
 func _begin_drag(side: Room.MovableSide, finger_index: int, start_position: Vector2) -> void:
 	# Se la camera si sta ancora assestando, si riparte dalla sua forma vera, con i lati dritti.
 	_stop_settle_animation()
-	_visual_rect = _cells_to_pixels(room.cells)
+	for each_room: Room in rooms:
+		_visual_rects[each_room] = _cells_to_pixels(each_room.cells)
 	_bend = Vector2.ZERO
 
 	_drag = RoomDrag.new(_grid, room, side, CELL_SIZE_PIXELS)
@@ -296,7 +351,10 @@ func _handle_finger_move(finger_move: InputEventScreenDrag) -> void:
 
 	_finger_position = finger_move.position
 	_drag.update(_finger_position - _drag_start_position)
-	_visual_rect = _drag.get_visual_rect()
+	_visual_rects[room] = _drag.get_visual_rect()
+	for other_room: Room in rooms:
+		if other_room != room:
+			_visual_rects[other_room] = _drag.get_neighbor_visual_rect(other_room)
 	_bend = _compute_bend(_drag.offset_pixels, _drag.side)
 	queue_redraw()
 
@@ -331,7 +389,7 @@ func _clear_drag() -> void:
 	_drag_finger_index = NONE
 
 
-## Anima il disegno dalla forma attuale alla forma vera della camera. Questa animazione è
+## Anima il disegno dalla forma attuale alla forma vera delle camere. Questa animazione è
 ## solo estetica: quando parte, la regola ha già deciso.
 func _animate_to_room_shape(seconds: float, transition: Tween.TransitionType) -> void:
 	_stop_settle_animation()
@@ -339,7 +397,10 @@ func _animate_to_room_shape(seconds: float, transition: Tween.TransitionType) ->
 	_settle_tween = create_tween()
 	# set_parallel() fa partire insieme le due animazioni, invece che una dopo l'altra.
 	_settle_tween.set_parallel()
-	_settle_tween.tween_method(_set_visual_rect, _visual_rect, _cells_to_pixels(room.cells), seconds).set_trans(transition).set_ease(Tween.EASE_OUT)
+	for each_room: Room in rooms:
+		# bind() aggiunge un parametro fisso alla chiamata: il Tween passa il rettangolo e bind
+		# aggiunge la camera a cui appartiene.
+		_settle_tween.tween_method(_set_visual_rect.bind(each_room), _visual_rects[each_room], _cells_to_pixels(each_room.cells), seconds).set_trans(transition).set_ease(Tween.EASE_OUT)
 	_settle_tween.tween_method(_set_bend, _bend, Vector2.ZERO, seconds).set_trans(transition).set_ease(Tween.EASE_OUT)
 
 
@@ -351,9 +412,9 @@ func _stop_settle_animation() -> void:
 		_settle_tween = null
 
 
-## Imposta il rettangolo disegnato. La chiama il Tween durante l'animazione.
-func _set_visual_rect(rect: Rect2) -> void:
-	_visual_rect = rect
+## Imposta il rettangolo disegnato di una camera. La chiama il Tween durante l'animazione.
+func _set_visual_rect(rect: Rect2, target_room: Room) -> void:
+	_visual_rects[target_room] = rect
 	queue_redraw()
 
 
@@ -429,38 +490,70 @@ func _draw_envelope(origin: Vector2) -> void:
 	draw_rect(Rect2(origin, envelope_size), border_color, false, border_width)
 
 
-## Disegna la camera con il lato incurvato e la sagoma di prova. Interno e muro sono compito
-## di RoomPainter; la sagoma sta tra i due, così i suoi piedi restano dietro il muro.
-func _draw_room(origin: Vector2) -> void:
-	var rect: Rect2 = Rect2(origin + _visual_rect.position, _visual_rect.size)
-	var outline: PackedVector2Array = _build_room_outline(rect)
+## Disegna una camera con l'eventuale lato incurvato. Interno e muro sono compito del suo
+## RoomPainter. La sagoma di prova compare solo nella camera selezionata e sta tra i due, così
+## i suoi piedi restano dietro il muro.
+func _draw_room(origin: Vector2, target_room: Room) -> void:
+	var visual_rect: Rect2 = _visual_rects[target_room]
+	var rect: Rect2 = Rect2(origin + visual_rect.position, visual_rect.size)
+	var outline: PackedVector2Array = _build_room_outline(rect, _get_bent_side_of(target_room))
+	var painter: RoomPainter = _painters[target_room]
 
-	_painter.paint_interior(self, outline, rect, origin)
-	_draw_silhouette(rect)
-	_painter.paint_frame(self, outline)
+	painter.paint_interior(self, outline, rect, origin)
+	if target_room == room and _is_room_selected:
+		_draw_silhouette(rect)
+	painter.paint_frame(self, outline)
+
+
+## Restituisce il lato di una camera che ora va incurvato, oppure NONE. La camera attiva curva
+## il lato trascinato; una vicina curva il lato che coincide con quel muro, perché il muro è
+## uno solo. Il controllo guarda il disegno, così vale anche durante l'assestamento.
+func _get_bent_side_of(target_room: Room) -> int:
+	if target_room == room:
+		return _bent_side
+
+	var facing_side: Room.MovableSide = Room.opposite_side(_bent_side)
+	var distance_pixels: float = absf(_rect_side_pixels(_visual_rects[room], _bent_side) - _rect_side_pixels(_visual_rects[target_room], facing_side))
+	if distance_pixels <= SAME_WALL_TOLERANCE_PIXELS and Room.side_span_covers(room.cells, _bent_side, target_room.cells):
+		return facing_side
+
+	return NONE
+
+
+## Restituisce dove si trova un lato di un rettangolo, in pixel: X per le pareti, Y per gli altri.
+func _rect_side_pixels(rect: Rect2, side: Room.MovableSide) -> float:
+	match side:
+		Room.MovableSide.LEFT_WALL:
+			return rect.position.x
+		Room.MovableSide.RIGHT_WALL:
+			return rect.end.x
+		Room.MovableSide.CEILING:
+			return rect.position.y
+		_:
+			return rect.end.y
 
 
 ## Costruisce il contorno della camera in senso orario, a partire dall'angolo in alto a
-## sinistra. Solo il lato trascinato si incurva.
-func _build_room_outline(rect: Rect2) -> PackedVector2Array:
+## sinistra. Solo bent_side si incurva; NONE significa nessun lato.
+func _build_room_outline(rect: Rect2, bent_side: int) -> PackedVector2Array:
 	var top_left: Vector2 = rect.position
 	var top_right: Vector2 = rect.position + Vector2(rect.size.x, 0.0)
 	var bottom_right: Vector2 = rect.end
 	var bottom_left: Vector2 = rect.position + Vector2(0.0, rect.size.y)
 
 	var points: PackedVector2Array = PackedVector2Array()
-	_append_side_points(points, top_left, top_right, Room.MovableSide.CEILING)
-	_append_side_points(points, top_right, bottom_right, Room.MovableSide.RIGHT_WALL)
-	_append_side_points(points, bottom_right, bottom_left, Room.MovableSide.FLOOR)
-	_append_side_points(points, bottom_left, top_left, Room.MovableSide.LEFT_WALL)
+	_append_side_points(points, top_left, top_right, Room.MovableSide.CEILING == bent_side)
+	_append_side_points(points, top_right, bottom_right, Room.MovableSide.RIGHT_WALL == bent_side)
+	_append_side_points(points, bottom_right, bottom_left, Room.MovableSide.FLOOR == bent_side)
+	_append_side_points(points, bottom_left, top_left, Room.MovableSide.LEFT_WALL == bent_side)
 	return points
 
 
 ## Aggiunge i punti di un lato, escluso l'ultimo: è il primo del lato successivo. La
 ## formula 4 × t × (1 - t) vale 0 agli estremi (t = 0 e t = 1) e 1 a metà: gli angoli
 ## restano fermi e il centro si sposta di tutta la curvatura.
-func _append_side_points(points: PackedVector2Array, from: Vector2, to: Vector2, side: Room.MovableSide) -> void:
-	var bend: Vector2 = _bend if side == _bent_side else Vector2.ZERO
+func _append_side_points(points: PackedVector2Array, from: Vector2, to: Vector2, is_bent: bool) -> void:
+	var bend: Vector2 = _bend if is_bent else Vector2.ZERO
 
 	for segment: int in SEGMENTS_PER_SIDE:
 		var t: float = float(segment) / SEGMENTS_PER_SIDE
@@ -511,15 +604,28 @@ func _draw_handle(side: Room.MovableSide, handle_scale: float) -> void:
 	draw_rect(Rect2(center - handle_size / 2.0, handle_size), HANDLE_COLOR)
 
 
-## Disegna il contorno del risultato: dove finirà la camera se la modifica è valida, oppure
-## dove tornerà se è rifiutata. Il colore aiuta, ma l'icona dice lo stesso con una forma.
+## Disegna il contorno del risultato: dove finiranno le camere se la modifica è valida,
+## oppure dove torneranno se è rifiutata, segnando anche la camera che la blocca. Il colore
+## aiuta, ma l'icona dice lo stesso con una forma.
 func _draw_target_outline(origin: Vector2) -> void:
-	var is_valid: bool = _drag.preview.is_valid()
-	var target_cells: Rect2i = _drag.preview.resulting_cells if is_valid else room.cells
-	var target_rect: Rect2 = _cells_to_pixels(target_cells)
-	target_rect.position += origin
+	var preview: ResizePreview = _drag.preview
 
-	draw_rect(target_rect, VALID_COLOR if is_valid else INVALID_COLOR, false, THICK_LINE_PIXELS)
+	if preview.is_valid():
+		_draw_cells_outline(origin, preview.resulting_cells, VALID_COLOR)
+		for change: RoomChange in preview.neighbor_changes:
+			_draw_cells_outline(origin, change.resulting_cells, VALID_COLOR)
+		return
+
+	_draw_cells_outline(origin, room.cells, INVALID_COLOR)
+	if preview.blocking_room != null:
+		_draw_cells_outline(origin, preview.blocking_room.cells, INVALID_COLOR)
+
+
+## Disegna il contorno di un rettangolo di celle.
+func _draw_cells_outline(origin: Vector2, cells: Rect2i, color: Color) -> void:
+	var rect: Rect2 = _cells_to_pixels(cells)
+	rect.position += origin
+	draw_rect(rect, color, false, THICK_LINE_PIXELS)
 
 
 ## Disegna sopra il dito l'icona del risultato: un segno di spunta se la modifica è

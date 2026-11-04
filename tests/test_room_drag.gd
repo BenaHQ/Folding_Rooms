@@ -159,8 +159,9 @@ func test_side_resists_at_minimum_size() -> void:
 
 ## Un'altra camera ferma il lato come il bordo dell'involucro.
 func test_side_resists_against_another_room() -> void:
-	# Camera ostacolo con una riga libera tra sé e il soffitto.
-	assert_true(_grid.add_room(Room.new(Rect2i(2, 0, 2, 2))))
+	# Camera ostacolo più larga, con una riga libera tra sé e il soffitto: spingerla la
+	# lascerebbe con una tacca, quindi la parete si deve fermare.
+	assert_true(_grid.add_room(Room.new(Rect2i(1, 0, 4, 2))))
 	var drag: RoomDrag = _make_drag(Room.MovableSide.CEILING)
 
 	# Due celle in su: il soffitto finirebbe dentro l'altra camera, ma ancora nell'involucro.
@@ -168,6 +169,67 @@ func test_side_resists_against_another_room() -> void:
 
 	assert_eq(drag.preview.rejection, ResizePreview.Rejection.OVERLAPS_ROOM)
 	assert_lt(absf(drag.offset_pixels), 100.0 + RoomDrag.MAX_RESISTANCE_PIXELS)
+
+
+## Il lato della vicina segue il dito solo se la parete lo spinge: se rientra, resta fermo (D-022).
+func test_touching_neighbor_moves_only_when_pushed() -> void:
+	var neighbor: Room = Room.new(Rect2i(4, 3, 2, 2))
+	assert_true(_grid.add_room(neighbor))
+	var drag: RoomDrag = _make_drag(Room.MovableSide.RIGHT_WALL)
+
+	drag.update(Vector2(30.0, 0.0))
+	assert_eq(drag.get_neighbor_visual_rect(neighbor), Rect2(430.0, 300.0, 170.0, 200.0))
+
+	drag.update(Vector2(-30.0, 0.0))
+	assert_eq(drag.get_neighbor_visual_rect(neighbor), Rect2(400.0, 300.0, 200.0, 200.0))
+
+
+## Una vicina distante resta ferma finché la parete non la raggiunge.
+func test_distant_neighbor_moves_only_once_reached() -> void:
+	var neighbor: Room = Room.new(Rect2i(5, 3, 1, 2))
+	var wide_room: Room = _room
+	assert_true(_grid.add_room(neighbor))
+	var drag: RoomDrag = RoomDrag.new(_grid, wide_room, Room.MovableSide.RIGHT_WALL, CELL_PIXELS)
+
+	drag.update(Vector2(60.0, 0.0))
+	assert_eq(drag.get_neighbor_visual_rect(neighbor), Rect2(500.0, 300.0, 100.0, 200.0))
+
+
+## Una vicina più lunga della parete non viene mai spostata.
+func test_longer_neighbor_is_not_moved() -> void:
+	var neighbor: Room = Room.new(Rect2i(4, 1, 2, 6))
+	assert_true(_grid.add_room(neighbor))
+	var drag: RoomDrag = _make_drag(Room.MovableSide.RIGHT_WALL)
+
+	drag.update(Vector2(-30.0, 0.0))
+
+	assert_eq(drag.get_neighbor_visual_rect(neighbor), Rect2(400.0, 100.0, 200.0, 600.0))
+
+
+## Una camera dietro la parete trascinata non c'entra, anche se è allineata.
+func test_room_behind_wall_is_not_moved() -> void:
+	var behind: Room = Room.new(Rect2i(0, 3, 2, 2))
+	assert_true(_grid.add_room(behind))
+	var drag: RoomDrag = _make_drag(Room.MovableSide.RIGHT_WALL)
+
+	drag.update(Vector2(60.0, 0.0))
+
+	assert_eq(drag.get_neighbor_visual_rect(behind), Rect2(0.0, 300.0, 200.0, 200.0))
+
+
+## Quando la regola rifiuta, la vicina non resta schiacciata sotto la camera: il suo lato resta
+## attaccato alla parete, che fa resistenza.
+func test_neighbor_follows_wall_resistance() -> void:
+	var neighbor: Room = Room.new(Rect2i(4, 3, 2, 2))
+	assert_true(_grid.add_room(neighbor))
+	var drag: RoomDrag = _make_drag(Room.MovableSide.RIGHT_WALL)
+
+	# Due celle: la camera resta nell'involucro, ma la vicina resterebbe senza celle.
+	drag.update(Vector2(200.0, 0.0))
+
+	assert_eq(drag.preview.rejection, ResizePreview.Rejection.NEIGHBOR_TOO_SMALL)
+	assert_almost_eq(drag.get_neighbor_visual_rect(neighbor).position.x, drag.get_visual_rect().end.x, TOLERANCE_PIXELS)
+	assert_gt(drag.get_neighbor_visual_rect(neighbor).size.x, 0.0)
 
 
 ## Durante il trascinamento la camera vera non cambia: cambia solo alla conferma.

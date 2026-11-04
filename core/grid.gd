@@ -11,8 +11,10 @@ extends RefCounted
 ## provare le regole senza avviare il gioco.
 ## NOTA GDSCRIPT: «extends RefCounted» crea un oggetto che non compare nella scena e
 ## che Godot elimina da solo quando nessuno lo usa più.
-## LIMITE ATTUALE: una camera vicina blocca sempre la modifica. La parete condivisa
-## tra due camere arriverà nella fase 4 della scaletta.
+## SPINTA TRA CAMERE (decisioni D-021 e D-022): una parete che incontra una camera vicina la
+## restringe; quando rientra, invece, la vicina resta ferma e si crea spazio libero. Le camere
+## restano rettangolari: se la parete non copre tutto il lato dell'altra camera, spingere è
+## rifiutato. Una camera non viene mai cancellata e la spinta non passa a quella dietro.
 
 ## L'involucro dentro cui devono stare tutte le camere.
 var _envelope: Envelope
@@ -30,9 +32,15 @@ func _init(envelope: Envelope) -> void:
 ## Restituisce true se l'ha aggiunta, false se la camera non è valida: in quel caso
 ## la griglia non cambia.
 func add_room(room: Room) -> bool:
-	# La camera non è ancora nell'elenco, quindi non c'è nessuna camera da ignorare.
-	if _find_rejection(room.cells, null) != ResizePreview.Rejection.NONE:
+	if _find_shape_rejection(room.cells) != ResizePreview.Rejection.NONE:
 		return false
+
+	# Qui non esiste una parete che si sposta: qualsiasi sovrapposizione è un errore.
+	for other_room: Room in _rooms:
+		# intersects() è vero solo se i rettangoli condividono almeno una cella: due
+		# camere che si toccano lungo una parete non si sovrappongono.
+		if other_room.cells.intersects(room.cells):
+			return false
 
 	_rooms.append(room)
 	return true
@@ -41,40 +49,68 @@ func add_room(room: Room) -> bool:
 ## Calcola il risultato dello spostamento di un lato, senza modificare nulla. Serve
 ## a mostrare l'anteprima mentre il dito si muove. offset_cells è in celle: positivo
 ## verso destra o verso il basso, negativo verso sinistra o verso l'alto. Restituisce
-## le celle previste e il motivo di un eventuale rifiuto.
+## le celle previste, le camere vicine coinvolte e il motivo di un eventuale rifiuto.
 func preview_resize(room: Room, side: Room.MovableSide, offset_cells: int) -> ResizePreview:
 	var new_cells: Rect2i = room.cells_after_moving(side, offset_cells)
-	return ResizePreview.new(new_cells, _find_rejection(new_cells, room))
+	var rejection: ResizePreview.Rejection = _find_shape_rejection(new_cells)
+
+	if rejection != ResizePreview.Rejection.NONE:
+		return ResizePreview.new(new_cells, rejection)
+
+	return _preview_with_neighbors(room, side, new_cells)
 
 
-## Sposta un lato della camera, se la modifica è permessa; altrimenti la camera resta
-## com'era. Parametri come preview_resize(). Restituisce l'anteprima usata per
-## decidere, così chi chiama sa se è andata a buon fine.
+## Sposta un lato della camera, se la modifica è permessa, insieme alle camere vicine
+## coinvolte; altrimenti non cambia nulla. Parametri come preview_resize(). Restituisce
+## l'anteprima usata per decidere, così chi chiama sa se è andata a buon fine.
 func resize_room(room: Room, side: Room.MovableSide, offset_cells: int) -> ResizePreview:
 	var preview: ResizePreview = preview_resize(room, side, offset_cells)
 
 	if preview.is_valid():
 		room.cells = preview.resulting_cells
+		for change: RoomChange in preview.neighbor_changes:
+			change.room.cells = change.resulting_cells
 
 	return preview
 
 
-## Controlla un rettangolo di celle e restituisce il primo motivo di rifiuto, oppure
-## Rejection.NONE. room_to_ignore è la camera che si sta modificando: non deve contare
-## come ostacolo per sé stessa. Può essere null se la camera non è ancora nella griglia.
-func _find_rejection(cells: Rect2i, room_to_ignore: Room) -> ResizePreview.Rejection:
+## Controlla la forma di un rettangolo di celle, senza guardare le altre camere: restituisce
+## il primo motivo di rifiuto, oppure Rejection.NONE.
+func _find_shape_rejection(cells: Rect2i) -> ResizePreview.Rejection:
 	# Controlla prima le misure: con misure zero o negative il rettangolo non
-	# descrive una forma vera, e i controlli seguenti non avrebbero senso.
+	# descrive una forma vera, e il controllo seguente non avrebbe senso.
 	if not Room.has_allowed_size(cells):
 		return ResizePreview.Rejection.TOO_SMALL
 
 	if not _envelope.contains(cells):
 		return ResizePreview.Rejection.OUTSIDE_ENVELOPE
 
-	for other_room: Room in _rooms:
-		# intersects() è vero solo se i rettangoli condividono almeno una cella: due
-		# camere che si toccano lungo una parete non si sovrappongono.
-		if other_room != room_to_ignore and other_room.cells.intersects(cells):
-			return ResizePreview.Rejection.OVERLAPS_ROOM
-
 	return ResizePreview.Rejection.NONE
+
+
+## Applica la regola della spinta a una forma già valida per sé stessa, e restituisce
+## l'anteprima completa. new_cells è la forma prevista per room, in celle.
+func _preview_with_neighbors(room: Room, side: Room.MovableSide, new_cells: Rect2i) -> ResizePreview:
+	var facing_side: Room.MovableSide = Room.opposite_side(side)
+	var new_wall: int = Room.side_coordinate(new_cells, side)
+	var changes: Array[RoomChange] = []
+
+	for other_room: Room in _rooms:
+		# Solo una camera che la nuova forma invaderebbe è coinvolta. Tutte le altre, anche quelle
+		# attaccate alla parete che rientra, restano ferme.
+		if other_room == room or not other_room.cells.intersects(new_cells):
+			continue
+
+		# Spingere una camera più lunga la lascerebbe con una tacca, non più rettangolare.
+		if not Room.side_span_covers(room.cells, side, other_room.cells):
+			return ResizePreview.new(new_cells, ResizePreview.Rejection.OVERLAPS_ROOM, [], other_room)
+
+		# La camera vicina porta il suo lato esattamente dove arriva la parete.
+		var other_wall: int = Room.side_coordinate(other_room.cells, facing_side)
+		var other_cells: Rect2i = other_room.cells_after_moving(facing_side, new_wall - other_wall)
+		if not Room.has_allowed_size(other_cells):
+			return ResizePreview.new(new_cells, ResizePreview.Rejection.NEIGHBOR_TOO_SMALL, [], other_room)
+
+		changes.append(RoomChange.new(other_room, other_cells))
+
+	return ResizePreview.new(new_cells, ResizePreview.Rejection.NONE, changes)

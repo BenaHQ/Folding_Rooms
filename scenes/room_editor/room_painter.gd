@@ -59,6 +59,10 @@ const RADIUS_OVAL: int = 60
 const WALLPAPER_LIGHT: Color = Color(0.98, 0.9, 0.74)
 const WALLPAPER_DARK: Color = Color(0.95, 0.85, 0.67)
 const WAINSCOT_COLOR: Color = Color(0.56, 0.75, 0.66)
+## Seconda tavolozza: le camere devono avere colori distinti (concept, sezione 9).
+const ROSE_WALLPAPER_LIGHT: Color = Color(0.97, 0.84, 0.76)
+const ROSE_WALLPAPER_DARK: Color = Color(0.94, 0.78, 0.69)
+const ROSE_WAINSCOT_COLOR: Color = Color(0.82, 0.55, 0.42)
 const CORNICE_COLOR: Color = Color(1.0, 0.96, 0.87)
 const FLOOR_COLOR: Color = Color(0.68, 0.45, 0.28)
 const FLOOR_SEAM_COLOR: Color = Color(0.5, 0.31, 0.19)
@@ -179,14 +183,18 @@ const PIECES: Array = [
 var _wallpaper_texture: ImageTexture
 ## Le assi del pavimento: un'immagine piccola che si ripete.
 var _floor_texture: ImageTexture
+## Il colore della fascia in basso sulla parete.
+var _wainscot_color: Color
 ## Il rettangolo arrotondato riusato per ogni parte degli arredi: colore e raggio cambiano
 ## ogni volta, e Godot registra il disegno con i valori di quel momento.
 var _part_box: StyleBoxFlat = StyleBoxFlat.new()
 
 
-## Prepara le immagini ripetute. _init() è la funzione che Godot chiama con RoomPainter.new().
-func _init() -> void:
-	_wallpaper_texture = _make_wallpaper_texture()
+## Prepara le immagini ripetute con i colori indicati, così ogni camera può avere i suoi.
+## _init() è la funzione che Godot chiama con RoomPainter.new().
+func _init(wallpaper_light: Color = WALLPAPER_LIGHT, wallpaper_dark: Color = WALLPAPER_DARK, wainscot: Color = WAINSCOT_COLOR) -> void:
+	_wainscot_color = wainscot
+	_wallpaper_texture = _make_wallpaper_texture(wallpaper_light, wallpaper_dark)
 	_floor_texture = _make_floor_texture()
 	_part_box.anti_aliasing = true
 
@@ -259,7 +267,6 @@ func paint_frame(canvas: CanvasItem, outline: PackedVector2Array) -> void:
 func _paint_bands(canvas: CanvasItem, outline: PackedVector2Array, room_rect: Rect2, envelope_origin: Vector2) -> void:
 	var floor_top: float = room_rect.end.y - FLOOR_HEIGHT_PIXELS
 	var wainscot_top: float = floor_top - WAINSCOT_HEIGHT_PIXELS
-	var cornice_bottom: float = room_rect.position.y + CORNICE_HEIGHT_PIXELS
 
 	# Le fasce escono dalla camera di BAND_OVERFLOW_PIXELS: il ritaglio le riporta sul contorno.
 	var left: float = room_rect.position.x - BAND_OVERFLOW_PIXELS
@@ -267,7 +274,7 @@ func _paint_bands(canvas: CanvasItem, outline: PackedVector2Array, room_rect: Re
 
 	var wainscot_band: Rect2 = Rect2(left, wainscot_top, width, floor_top - wainscot_top)
 	for piece: PackedVector2Array in _clip_to_outline(wainscot_band, outline):
-		canvas.draw_colored_polygon(piece, WAINSCOT_COLOR)
+		canvas.draw_colored_polygon(piece, _wainscot_color)
 
 	var cornice_band: Rect2 = Rect2(left, room_rect.position.y - BAND_OVERFLOW_PIXELS, width, CORNICE_HEIGHT_PIXELS + BAND_OVERFLOW_PIXELS)
 	for piece: PackedVector2Array in _clip_to_outline(cornice_band, outline):
@@ -280,10 +287,6 @@ func _paint_bands(canvas: CanvasItem, outline: PackedVector2Array, room_rect: Re
 	var floor_tile_origin: Vector2 = Vector2(envelope_origin.x, floor_top)
 	for piece: PackedVector2Array in _clip_to_outline(floor_band, outline):
 		canvas.draw_colored_polygon(piece, Color.WHITE, compute_tile_uvs(piece, floor_tile_origin, floor_tile), _floor_texture)
-
-	# Se la camera è molto bassa la cornice potrebbe finire sulla boiserie: a 110 pixel, la
-	# camera più piccola, le tre fasce occupano 62 pixel e restano separate.
-	assert(cornice_bottom <= wainscot_top or room_rect.size.y < FLOOR_HEIGHT_PIXELS + WAINSCOT_HEIGHT_PIXELS + CORNICE_HEIGHT_PIXELS)
 
 
 ## Restituisce la parte di un rettangolo che cade dentro il contorno. Il risultato è un
@@ -329,10 +332,10 @@ func _draw_part(canvas: CanvasItem, rect: Rect2, color: Color, radius_pixels: in
 
 ## Crea l'immagine della carta da parati: due strisce verticali di colore diverso. Il nodo
 ## che disegna deve avere texture_repeat attivo, altrimenti l'immagine non si ripete.
-func _make_wallpaper_texture() -> ImageTexture:
+func _make_wallpaper_texture(light: Color, dark: Color) -> ImageTexture:
 	var image: Image = Image.create_empty(2 * WALLPAPER_STRIPE_PIXELS, WALLPAPER_TILE_HEIGHT_PIXELS, false, Image.FORMAT_RGBA8)
-	image.fill(WALLPAPER_LIGHT)
-	image.fill_rect(Rect2i(WALLPAPER_STRIPE_PIXELS, 0, WALLPAPER_STRIPE_PIXELS, WALLPAPER_TILE_HEIGHT_PIXELS), WALLPAPER_DARK)
+	image.fill(light)
+	image.fill_rect(Rect2i(WALLPAPER_STRIPE_PIXELS, 0, WALLPAPER_STRIPE_PIXELS, WALLPAPER_TILE_HEIGHT_PIXELS), dark)
 	return ImageTexture.create_from_image(image)
 
 

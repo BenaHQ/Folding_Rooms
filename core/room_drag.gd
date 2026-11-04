@@ -87,8 +87,8 @@ func update(pointer_offset: Vector2) -> void:
 	offset_pixels = _apply_resistance(distance_pixels)
 
 
-## Conclude il trascinamento: applica la modifica se è permessa, altrimenti la camera
-## resta com'era. Restituisce l'anteprima usata per decidere.
+## Conclude il trascinamento: applica la modifica se è permessa, anche alle camere vicine,
+## altrimenti tutto resta com'era. Restituisce l'anteprima usata per decidere.
 func commit() -> ResizePreview:
 	return _grid.resize_room(_room, side, _attempted_offset_cells)
 
@@ -96,23 +96,58 @@ func commit() -> ResizePreview:
 ## Restituisce il rettangolo in pixel in cui disegnare la camera ora, misurato
 ## dall'angolo in alto a sinistra dell'involucro.
 func get_visual_rect() -> Rect2:
-	var rect: Rect2 = Rect2(Vector2(_room.cells.position), Vector2(_room.cells.size))
-	rect.position *= _cell_size_pixels
-	rect.size *= _cell_size_pixels
+	return _move_rect_side(_cells_to_pixels(_room.cells), side, offset_pixels)
 
-	# Stessa logica di Room.cells_after_moving(), ma con i pixel invece delle celle:
-	# sinistra e soffitto spostano anche l'angolo in alto a sinistra.
-	match side:
+
+## Restituisce il rettangolo in pixel in cui disegnare un'altra camera ora. Il suo lato segue la
+## parete trascinata solo da quando la parete lo raggiunge e lo spinge: così le due modifiche si
+## vedono insieme e il muro resta unico. Non decide nulla: è solo il disegno.
+func get_neighbor_visual_rect(other_room: Room) -> Rect2:
+	var other_rect: Rect2 = _cells_to_pixels(other_room.cells)
+
+	# Se non può coprirne tutto il lato, la parete non sposta mai quella camera.
+	if not Room.side_span_covers(_room.cells, side, other_room.cells):
+		return other_rect
+
+	var facing_side: Room.MovableSide = Room.opposite_side(side)
+	var wall_cells: int = Room.side_coordinate(_room.cells, side)
+	var other_wall_cells: int = Room.side_coordinate(other_room.cells, facing_side)
+
+	# Il verso in cui il lato si allontana dalla camera: +1 verso destra o il basso, -1 verso
+	# sinistra o l'alto. Una distanza moltiplicata per questo verso è positiva «davanti».
+	var outward: int = 1 if side == Room.MovableSide.RIGHT_WALL or side == Room.MovableSide.FLOOR else -1
+	if (other_wall_cells - wall_cells) * outward < 0:
+		# Quella camera sta dietro la parete: non c'entra.
+		return other_rect
+
+	var gap_to_wall_pixels: float = (other_wall_cells * _cell_size_pixels) - (wall_cells * _cell_size_pixels + offset_pixels)
+	if gap_to_wall_pixels * outward >= 0.0:
+		# La parete non l'ha ancora raggiunta, oppure si sta allontanando.
+		return other_rect
+
+	return _move_rect_side(other_rect, facing_side, -gap_to_wall_pixels)
+
+
+## Converte un rettangolo di celle in pixel, misurati dall'angolo dell'involucro.
+func _cells_to_pixels(cells: Rect2i) -> Rect2:
+	return Rect2(Vector2(cells.position) * _cell_size_pixels, Vector2(cells.size) * _cell_size_pixels)
+
+
+## Restituisce il rettangolo con un lato spostato di distance_pixels. Stessa logica di
+## Room.cells_after_moving(), ma con i pixel: sinistra e soffitto spostano anche l'angolo in
+## alto a sinistra. Positivo verso destra o verso il basso.
+func _move_rect_side(rect: Rect2, moved_side: Room.MovableSide, distance_pixels: float) -> Rect2:
+	match moved_side:
 		Room.MovableSide.LEFT_WALL:
-			rect.position.x += offset_pixels
-			rect.size.x -= offset_pixels
+			rect.position.x += distance_pixels
+			rect.size.x -= distance_pixels
 		Room.MovableSide.RIGHT_WALL:
-			rect.size.x += offset_pixels
+			rect.size.x += distance_pixels
 		Room.MovableSide.CEILING:
-			rect.position.y += offset_pixels
-			rect.size.y -= offset_pixels
+			rect.position.y += distance_pixels
+			rect.size.y -= distance_pixels
 		Room.MovableSide.FLOOR:
-			rect.size.y += offset_pixels
+			rect.size.y += distance_pixels
 
 	return rect
 

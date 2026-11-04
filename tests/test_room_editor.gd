@@ -1,9 +1,9 @@
 extends GutTest
 ## Test del comportamento della scena del gesto, con tocchi simulati.
 ##
-## COMPORTAMENTO PROTETTO: toccare la camera mostra le maniglie; trascinare una maniglia e
-## rilasciare applica la modifica; un secondo dito viene ignorato; un tocco interrotto non
-## cambia la camera. La sensazione del gesto non è giudicabile da un test: va provata a mano.
+## COMPORTAMENTO PROTETTO: toccare una camera mostra le sue maniglie; trascinare una maniglia e
+## rilasciare applica la modifica, anche alla camera vicina; un secondo dito viene ignorato; un
+## tocco interrotto non cambia le camere. La sensazione del gesto non è giudicabile da un test: va provata a mano.
 ## CHI LO USA: GUT, lo strumento che esegue i test automatici. Il comando per avviarli è
 ## scritto in docs/STATO.md.
 ## PERCHÉ È SEPARATO: prova la scena completa, mentre test_room_drag.gd prova il calcolo.
@@ -93,7 +93,7 @@ func _point_in_room(fraction: Vector2) -> Vector2:
 func _set_room_shape(cells: Rect2i) -> void:
 	_editor._stop_settle_animation()
 	_editor.room.cells = cells
-	_editor._set_visual_rect(_editor._cells_to_pixels(cells))
+	_editor._set_visual_rect(_editor._cells_to_pixels(cells), _editor.room)
 
 
 ## Esegue un intero gesto dall'interno: tocca, si muove e rilascia.
@@ -346,6 +346,102 @@ func test_smallest_room_keeps_handles_separate() -> void:
 
 	for side: Room.MovableSide in Room.MovableSide.values():
 		assert_eq(_editor._find_handle_at(_editor.get_handle_position(side)), side)
+
+
+## Restituisce la seconda camera, quella che all'avvio condivide una parete con la prima.
+func _second_room() -> Room:
+	return _editor.rooms[1]
+
+
+## Restituisce il punto al centro di un rettangolo di celle, in pixel del nodo.
+func _center_of_cells(cells: Rect2i) -> Vector2:
+	return _editor.get_envelope_origin() + (Vector2(cells.position) + Vector2(cells.size) / 2.0) * RoomEditor.CELL_SIZE_PIXELS
+
+
+## Le due camere iniziali devono esistere e condividere una parete.
+func test_scene_starts_with_two_touching_rooms() -> void:
+	assert_eq(_editor.rooms.size(), 2)
+	assert_eq(_editor.rooms[0].cells.end.x, _second_room().cells.position.x)
+
+
+## Toccando l'altra camera diventa attiva quella, senza far partire un gesto.
+func test_touching_other_room_switches_selection() -> void:
+	_select_room()
+	var other_center: Vector2 = _center_of_cells(RoomEditor.SECOND_ROOM_CELLS)
+
+	_touch(FIRST_FINGER, other_center, true)
+
+	assert_eq(_editor.room, _second_room())
+	assert_true(_editor.is_room_selected())
+	assert_false(_editor.is_dragging())
+
+
+## Il primo tocco sulla seconda camera, senza selezioni, deve selezionare proprio lei.
+func test_first_touch_can_select_second_room() -> void:
+	_touch(FIRST_FINGER, _center_of_cells(RoomEditor.SECOND_ROOM_CELLS), true)
+
+	assert_eq(_editor.room, _second_room())
+	assert_true(_editor.is_room_selected())
+
+
+## La maniglia che sporge sopra la camera vicina ha la precedenza: non deve cambiare selezione.
+func test_handle_over_neighbor_wins_over_selecting_it() -> void:
+	_select_room()
+	var first_room: Room = _editor.room
+	var handle: Vector2 = _editor.get_handle_position(Room.MovableSide.RIGHT_WALL) + Vector2(10.0, 0.0)
+
+	_touch(FIRST_FINGER, handle, true)
+
+	assert_eq(_editor.room, first_room)
+	assert_true(_editor.is_dragging())
+
+
+## Spingendo la parete condivisa cambiano entrambe le camere, ma solo al rilascio.
+func test_pushing_shared_wall_changes_both_rooms_on_release() -> void:
+	_select_room()
+	var start: Vector2 = _point_in_room(RIGHT_HALF)
+	var end: Vector2 = start + Vector2(RoomEditor.CELL_SIZE_PIXELS, 0.0)
+
+	_touch(FIRST_FINGER, start, true)
+	_move_finger(FIRST_FINGER, end)
+	assert_eq(_second_room().cells, RoomEditor.SECOND_ROOM_CELLS)
+	assert_eq(_editor._visual_rects[_second_room()].position.x, _editor._visual_rects[_editor.room].end.x, "il muro disegnato è uno solo")
+
+	_touch(FIRST_FINGER, end, false)
+	assert_eq(_editor.room.cells, Rect2i(2, 4, 3, 2))
+	assert_eq(_second_room().cells, Rect2i(5, 4, 1, 2))
+
+
+## Rientrando, la camera vicina resta ferma e tra le due si crea spazio libero (D-022).
+func test_pulling_wall_leaves_neighbor_alone() -> void:
+	_select_room()
+	_perform_inner_gesture(_point_in_room(RIGHT_HALF), Vector2(-RoomEditor.CELL_SIZE_PIXELS, 0.0))
+
+	assert_eq(_editor.room.cells, Rect2i(2, 4, 1, 2))
+	assert_eq(_second_room().cells, RoomEditor.SECOND_ROOM_CELLS)
+
+
+## Se la vicina diventerebbe inutilizzabile si rifiuta tutto e nessuna delle due cambia.
+func test_rejected_push_keeps_both_rooms() -> void:
+	_select_room()
+	_perform_inner_gesture(_point_in_room(RIGHT_HALF), Vector2(2.0 * RoomEditor.CELL_SIZE_PIXELS, 0.0))
+
+	assert_eq(_editor.room.cells, RoomEditor.INITIAL_ROOM_CELLS)
+	assert_eq(_second_room().cells, RoomEditor.SECOND_ROOM_CELLS)
+
+
+## Un tocco interrotto riporta entrambe le camere alla forma vera.
+func test_canceled_touch_keeps_both_rooms() -> void:
+	_select_room()
+	var start: Vector2 = _point_in_room(RIGHT_HALF)
+	var end: Vector2 = start + Vector2(RoomEditor.CELL_SIZE_PIXELS, 0.0)
+
+	_touch(FIRST_FINGER, start, true)
+	_move_finger(FIRST_FINGER, end)
+	_touch(FIRST_FINGER, end, false, true)
+
+	assert_eq(_editor.room.cells, RoomEditor.INITIAL_ROOM_CELLS)
+	assert_eq(_second_room().cells, RoomEditor.SECOND_ROOM_CELLS)
 
 
 ## Seleziona la camera toccando il centro della sua forma attuale.

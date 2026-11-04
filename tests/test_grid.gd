@@ -2,8 +2,9 @@ extends GutTest
 ## Test delle regole di modifica di una camera.
 ##
 ## COMPORTAMENTO PROTETTO: una camera può occupare spazio libero, ma non può uscire
-## dall'involucro, scendere sotto le misure minime o finire sopra un'altra camera.
-## L'anteprima spiega il motivo del rifiuto e non cambia mai nulla.
+## dall'involucro né scendere sotto le misure minime. Una parete condivisa cambia entrambe le
+## camere, che restano rettangolari, e nessuna viene mai cancellata (D-021). L'anteprima
+## spiega il motivo del rifiuto e non cambia mai nulla.
 ## CHI LO USA: GUT, lo strumento che esegue i test automatici. Il comando per
 ## avviarli è scritto in docs/STATO.md.
 ## PERCHÉ È SEPARATO: prova solo le regole di core/, senza scene né grafica.
@@ -134,20 +135,24 @@ func test_too_small_wins_over_outside_envelope() -> void:
 	assert_eq(grid.preview_resize(room, Room.MovableSide.CEILING, 20).rejection, ResizePreview.Rejection.TOO_SMALL)
 
 
-## Una camera non può finire sopra un'altra, ma può toccarla lungo la parete.
-func test_room_can_touch_but_not_overlap_another_room() -> void:
+## Una camera non può finire sopra una più lunga di lei, che resterebbe con una tacca, ma può
+## toccarla lungo la parete.
+func test_room_can_touch_but_not_notch_a_longer_room() -> void:
 	var setup: Dictionary = _make_grid_with_room(CENTER_ROOM_CELLS)
 	var grid: Grid = setup["grid"]
 	var room: Room = setup["room"]
 
-	# Camera vicina al piano di sopra: occupa le righe 0 e 1 e lascia libera la 2.
-	assert_true(grid.add_room(Room.new(Rect2i(2, 0, 2, 2))))
+	# Camera vicina al piano di sopra, più larga: occupa le righe 0 e 1 e lascia libera la 2.
+	var blocker: Room = Room.new(Rect2i(1, 0, 4, 2))
+	assert_true(grid.add_room(blocker))
 
 	assert_true(grid.preview_resize(room, Room.MovableSide.CEILING, -1).is_valid())
-	_assert_preview(grid.preview_resize(room, Room.MovableSide.CEILING, -2), ResizePreview.Rejection.OVERLAPS_ROOM, Rect2i(2, 1, 2, 4))
+	var preview: ResizePreview = grid.preview_resize(room, Room.MovableSide.CEILING, -2)
+	_assert_preview(preview, ResizePreview.Rejection.OVERLAPS_ROOM, Rect2i(2, 1, 2, 4))
+	assert_eq(preview.blocking_room, blocker)
 
 
-## Uno spostamento lungo non può scavalcare una camera in un colpo solo.
+## Uno spostamento lungo non può scavalcare o cancellare una camera in un colpo solo.
 func test_room_cannot_jump_over_another_room() -> void:
 	var setup: Dictionary = _make_grid_with_room(Rect2i(0, 3, 1, 2))
 	var grid: Grid = setup["grid"]
@@ -156,7 +161,7 @@ func test_room_cannot_jump_over_another_room() -> void:
 	# La camera ostacolo sta tra la parete destra e il bordo dell'involucro.
 	assert_true(grid.add_room(Room.new(Rect2i(2, 3, 1, 2))))
 
-	assert_eq(grid.preview_resize(room, Room.MovableSide.RIGHT_WALL, 4).rejection, ResizePreview.Rejection.OVERLAPS_ROOM)
+	assert_eq(grid.preview_resize(room, Room.MovableSide.RIGHT_WALL, 4).rejection, ResizePreview.Rejection.NEIGHBOR_TOO_SMALL)
 
 
 ## Una camera non è un ostacolo per sé stessa quando cresce.
@@ -166,6 +171,143 @@ func test_room_is_not_an_obstacle_for_itself() -> void:
 	var room: Room = setup["room"]
 
 	assert_ne(grid.preview_resize(room, Room.MovableSide.RIGHT_WALL, 1).rejection, ResizePreview.Rejection.OVERLAPS_ROOM)
+
+
+## Spingendo una parete condivisa, la camera vicina si restringe di altrettanto.
+func test_pushing_shared_wall_shrinks_neighbor() -> void:
+	var setup: Dictionary = _make_grid_with_room(Rect2i(0, 3, 2, 2))
+	var grid: Grid = setup["grid"]
+	var room: Room = setup["room"]
+	var neighbor: Room = Room.new(Rect2i(2, 3, 3, 2))
+	assert_true(grid.add_room(neighbor))
+
+	var preview: ResizePreview = grid.resize_room(room, Room.MovableSide.RIGHT_WALL, 2)
+
+	assert_true(preview.is_valid())
+	assert_eq(room.cells, Rect2i(0, 3, 4, 2))
+	assert_eq(neighbor.cells, Rect2i(4, 3, 1, 2))
+
+
+## Tirando indietro una parete, la camera vicina resta ferma: così due camere attaccate possono
+## separarsi e si crea spazio libero (D-022).
+func test_pulling_wall_leaves_touching_neighbor_alone() -> void:
+	var setup: Dictionary = _make_grid_with_room(Rect2i(0, 3, 3, 2))
+	var grid: Grid = setup["grid"]
+	var room: Room = setup["room"]
+	var neighbor: Room = Room.new(Rect2i(3, 3, 2, 2))
+	assert_true(grid.add_room(neighbor))
+
+	var preview: ResizePreview = grid.resize_room(room, Room.MovableSide.RIGHT_WALL, -2)
+
+	assert_true(preview.is_valid())
+	assert_eq(preview.neighbor_changes.size(), 0)
+	assert_eq(room.cells, Rect2i(0, 3, 1, 2))
+	assert_eq(neighbor.cells, Rect2i(3, 3, 2, 2))
+
+
+## La regola vale anche in verticale: un soffitto è il pavimento della camera di sopra.
+func test_shared_ceiling_moves_both_rooms() -> void:
+	var setup: Dictionary = _make_grid_with_room(Rect2i(1, 4, 2, 2))
+	var grid: Grid = setup["grid"]
+	var room: Room = setup["room"]
+	var upstairs: Room = Room.new(Rect2i(1, 1, 2, 3))
+	assert_true(grid.add_room(upstairs))
+
+	assert_true(grid.resize_room(room, Room.MovableSide.CEILING, -1).is_valid())
+
+	assert_eq(room.cells, Rect2i(1, 3, 2, 3))
+	assert_eq(upstairs.cells, Rect2i(1, 1, 2, 2))
+
+
+## Una camera vicina non può scendere sotto il minimo: si rifiuta e non cambia niente. La spinta
+## non si trasmette nemmeno a una terza camera dietro.
+func test_neighbor_cannot_become_unusable() -> void:
+	var setup: Dictionary = _make_grid_with_room(Rect2i(0, 3, 2, 2))
+	var grid: Grid = setup["grid"]
+	var room: Room = setup["room"]
+	var neighbor: Room = Room.new(Rect2i(2, 3, 2, 2))
+	assert_true(grid.add_room(neighbor))
+
+	# Una cella è il minimo esatto: è valido.
+	assert_true(grid.preview_resize(room, Room.MovableSide.RIGHT_WALL, 1).is_valid())
+
+	var preview: ResizePreview = grid.resize_room(room, Room.MovableSide.RIGHT_WALL, 2)
+	assert_eq(preview.rejection, ResizePreview.Rejection.NEIGHBOR_TOO_SMALL)
+	assert_eq(preview.blocking_room, neighbor)
+	assert_eq(preview.neighbor_changes.size(), 0)
+	assert_eq(room.cells, Rect2i(0, 3, 2, 2))
+	assert_eq(neighbor.cells, Rect2i(2, 3, 2, 2))
+
+
+## Se la parete viene da lontano, la vicina cambia solo da quando viene raggiunta.
+func test_wall_pushes_neighbor_only_after_reaching_it() -> void:
+	var setup: Dictionary = _make_grid_with_room(Rect2i(0, 3, 1, 2))
+	var grid: Grid = setup["grid"]
+	var room: Room = setup["room"]
+	var neighbor: Room = Room.new(Rect2i(2, 3, 2, 2))
+	assert_true(grid.add_room(neighbor))
+
+	assert_eq(grid.preview_resize(room, Room.MovableSide.RIGHT_WALL, 1).neighbor_changes.size(), 0)
+
+	var preview: ResizePreview = grid.preview_resize(room, Room.MovableSide.RIGHT_WALL, 2)
+	assert_eq(preview.neighbor_changes.size(), 1)
+	assert_eq(preview.neighbor_changes[0].room, neighbor)
+	assert_eq(preview.neighbor_changes[0].resulting_cells, Rect2i(3, 3, 1, 2))
+
+
+## Una parete lunga può spostare insieme due camere più corte che ha di fronte.
+func test_long_wall_moves_two_neighbors() -> void:
+	var setup: Dictionary = _make_grid_with_room(Rect2i(0, 2, 2, 4))
+	var grid: Grid = setup["grid"]
+	var room: Room = setup["room"]
+	var upper: Room = Room.new(Rect2i(2, 2, 2, 2))
+	var lower: Room = Room.new(Rect2i(2, 4, 3, 2))
+	assert_true(grid.add_room(upper))
+	assert_true(grid.add_room(lower))
+
+	assert_true(grid.resize_room(room, Room.MovableSide.RIGHT_WALL, 1).is_valid())
+
+	assert_eq(upper.cells, Rect2i(3, 2, 1, 2))
+	assert_eq(lower.cells, Rect2i(3, 4, 2, 2))
+
+
+## Con due vicine, una che può spostarsi e una troppo piccola, non deve cambiare nessuna.
+func test_one_blocked_neighbor_blocks_the_whole_change() -> void:
+	var setup: Dictionary = _make_grid_with_room(Rect2i(0, 2, 2, 4))
+	var grid: Grid = setup["grid"]
+	var room: Room = setup["room"]
+	var upper: Room = Room.new(Rect2i(2, 2, 3, 2))
+	var lower: Room = Room.new(Rect2i(2, 4, 1, 2))
+	assert_true(grid.add_room(upper))
+	assert_true(grid.add_room(lower))
+
+	var preview: ResizePreview = grid.resize_room(room, Room.MovableSide.RIGHT_WALL, 1)
+
+	assert_eq(preview.rejection, ResizePreview.Rejection.NEIGHBOR_TOO_SMALL)
+	assert_eq(upper.cells, Rect2i(2, 2, 3, 2))
+	assert_eq(lower.cells, Rect2i(2, 4, 1, 2))
+
+
+## L'anteprima non deve cambiare nemmeno la camera vicina.
+func test_preview_does_not_modify_neighbor() -> void:
+	var setup: Dictionary = _make_grid_with_room(Rect2i(0, 3, 2, 2))
+	var grid: Grid = setup["grid"]
+	var room: Room = setup["room"]
+	var neighbor: Room = Room.new(Rect2i(2, 3, 2, 2))
+	assert_true(grid.add_room(neighbor))
+
+	grid.preview_resize(room, Room.MovableSide.RIGHT_WALL, 1)
+
+	assert_eq(neighbor.cells, Rect2i(2, 3, 2, 2))
+
+
+## Il lato opposto deve essere sempre quello di fronte: la regola della parete condivisa
+## dipende da questo abbinamento.
+func test_opposite_sides_are_paired() -> void:
+	assert_eq(Room.opposite_side(Room.MovableSide.LEFT_WALL), Room.MovableSide.RIGHT_WALL)
+	assert_eq(Room.opposite_side(Room.MovableSide.RIGHT_WALL), Room.MovableSide.LEFT_WALL)
+	assert_eq(Room.opposite_side(Room.MovableSide.CEILING), Room.MovableSide.FLOOR)
+	assert_eq(Room.opposite_side(Room.MovableSide.FLOOR), Room.MovableSide.CEILING)
 
 
 ## L'anteprima viene ricalcolata di continuo durante il gesto: non deve cambiare nulla.

@@ -46,6 +46,44 @@ static func has_allowed_size(room_cells: Rect2i) -> bool:
 	return room_cells.size.x >= MIN_WIDTH_CELLS and room_cells.size.y >= MIN_HEIGHT_CELLS
 
 
+## Restituisce il lato di fronte a quello indicato: una parete condivisa è la parete destra
+## di una camera e la parete sinistra di quella accanto.
+static func opposite_side(side: MovableSide) -> MovableSide:
+	match side:
+		MovableSide.LEFT_WALL:
+			return MovableSide.RIGHT_WALL
+		MovableSide.RIGHT_WALL:
+			return MovableSide.LEFT_WALL
+		MovableSide.CEILING:
+			return MovableSide.FLOOR
+		_:
+			return MovableSide.CEILING
+
+
+## Restituisce dove si trova un lato di un rettangolo, in celle: la X per le pareti e la Y per
+## soffitto e pavimento. end indica il primo punto oltre il rettangolo, cioè il suo bordo.
+static func side_coordinate(room_cells: Rect2i, side: MovableSide) -> int:
+	match side:
+		MovableSide.LEFT_WALL:
+			return room_cells.position.x
+		MovableSide.RIGHT_WALL:
+			return room_cells.end.x
+		MovableSide.CEILING:
+			return room_cells.position.y
+		_:
+			return room_cells.end.y
+
+
+## Restituisce true se il lato di room_cells è lungo almeno quanto il lato di other_cells che
+## ha di fronte, e lo copre tutto. Solo così la parete può spostare l'altra camera lasciandola
+## rettangolare. Non controlla se le due camere si toccano. Tutto è in celle.
+static func side_span_covers(room_cells: Rect2i, side: MovableSide, other_cells: Rect2i) -> bool:
+	if side == MovableSide.LEFT_WALL or side == MovableSide.RIGHT_WALL:
+		return other_cells.position.y >= room_cells.position.y and other_cells.end.y <= room_cells.end.y
+
+	return other_cells.position.x >= room_cells.position.x and other_cells.end.x <= room_cells.end.x
+
+
 ## Restituisce le celle che la camera occuperebbe spostando un lato, senza
 ## modificare la camera. offset_cells segue gli assi dello schermo, come il dito:
 ## positivo verso destra o verso il basso, negativo verso sinistra o verso l'alto.

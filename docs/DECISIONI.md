@@ -135,3 +135,22 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Decisione:** le prove rapide si fanno nel simulatore iPhone con l'app nativa, tramite `tools/run_ios_simulator.sh`. Il telefono resta necessario per giudicare tocco vero e fluidità.
 - **Motivo:** nei modelli ufficiali di Godot 4.7.2 la libreria per simulatore è solo `x86_64` e su questo Mac viene rifiutata. La libreria `arm64` è stata compilata dai sorgenti ufficiali di `4.7.2-stable` (checksum verificato) con SCons 4.11.1, in circa 6 minuti, ed è salvata fuori dal repository in `~/Library/Application Support/Godot/custom_templates/4.7.2-ios-simulator-arm64/`. Serve solo al simulatore: le build per iPhone usano i modelli ufficiali.
 - **Deciso da:** Riccardo.
+
+## D-024 — 2026-11-04 — Terzo ospite
+
+- **Decisione:** il terzo ospite del prototipo è un ospite piccolo che vuole una camera raccolta. Serve a mostrare che più grande non è sempre meglio (D-019).
+- **Deciso da:** Riccardo, su proposta della scaletta. La specie è provvisoria: nei dati è un ghiro (`data/guests/dormouse.tres`), scelto da Claude Code.
+
+## D-025 — 2026-11-04 — Misure degli ospiti e assegnazione nel prototipo
+
+- **Decisione:** misure iniziali, in celle (larghezza × altezza). Giraffa: entra da 1×3, sta bene da 2×3. Serpente: entra da 3×1, sta bene da 4×1 con altezza massima 2. Ghiro: entra da 1×1, sta bene fino a 2×2. Si sceglie un ospite dalla scheda e si tocca la camera selezionata per farlo entrare; toccando la scheda di un ospite in camera, esce. Una modifica che lascerebbe fuori un ospite già presente è rifiutata.
+- **Motivo:** applica D-019 e la frase del concept, sezione 2, sulle trasformazioni che renderebbero una camera inutilizzabile. I numeri stanno nei file di `data/guests/` e sono facili da cambiare.
+- **Deciso da:** Claude Code; misure e modo di assegnare sono da confermare con la prova di Riccardo.
+
+## D-026 — 2026-11-04 — Ciclo di gioco: fila di ospiti, turni e compensi
+
+- **Decisione:** gli ospiti arrivano uno alla volta da una fila, alla Tetris; si vedono quello di turno e i due successivi. Ognuno indica il bisogno, per quanti turni resta e quanto paga se è comodo o scomodo. Un turno finisce quando l'ospite di turno viene sistemato o rifiutato. A ogni turno chi è in camera paga secondo come sta in quel momento. Si può rifiutare senza penalità e, per ora, non si perde mai. Spostare le pareti è gratis. Una camera troppo grande paga come una in cui si è stipati.
+- **Valori iniziali** (turni di permanenza, monete a turno da comodo, da scomodo): giraffa 3, 10, 4; serpente 2, 12, 5; ghiro 3, 6, 3. Sono proposte di Claude Code, in `data/guests/`, da bilanciare provando.
+- **Motivo:** una fila crea la pressione che le schede libere non davano, e i compensi legati al comfort applicano D-019. Le regole non bloccano le prove con i giocatori: una condizione di sconfitta e i costi delle modifiche si valutano dopo.
+- **Deciso da:** Riccardo per il ciclo e le quattro regole; Claude Code per valori e per il trattamento delle camere troppo grandi.
+- **Sostituisce:** in D-019, la permanenza più breve per chi è stipato: la permanenza ora è fissa, cambia il compenso. In D-025, la scelta libera dell'ospite dalla scheda e l'uscita a comando. Anticipa l'economia minima prevista dalla scaletta in fase 8.

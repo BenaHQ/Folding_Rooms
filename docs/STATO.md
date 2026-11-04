@@ -6,7 +6,8 @@ Ogni agente aggiorna questo file a fine sessione: riscrive «Adesso» e «Prossi
 
 ## Adesso
 
-- **Fase:** fase 4 della scaletta (`docs/ROADMAP.md`) completata sul branch `feature/fase-4-due-camere`, che parte da `feature/fase-3-telefono`: non ancora in commit. La fase 3 è sul remote in `origin/feature/fase-3-telefono`, che contiene anche le fasi 0, 1 e 2. Nulla è unito a `main`.
+- **Fase:** fase 5 della scaletta (`docs/ROADMAP.md`) completata e in commit locale sul branch `feature/fase-5-ospiti`, che parte da `feature/fase-4-due-camere`; non inviata al remote. Le fasi 0-4 sono nella pull request https://github.com/BenaHQ/Folding_Rooms/pull/1, aperta e non unita a `main`.
+- **Fase 5:** dati in `data/guests/`, regole in `core/need.gd`, `core/guest.gd` e `core/grid.gd`, partita in `core/hotel_session.gd` e `core/guest_queue.gd` (D-026), disegno in `scenes/room_editor/guest_painter.gd`, interfaccia in `ui/guest_bar/` e `ui/hud/`. Misure e valori sono proposte da bilanciare (D-025, D-026). Il ciclo è confermato da Riccardo nel simulatore. Da controllare: bilanciamento; se con due camere ci si trova spesso a rifiutare; la maniglia del pavimento copre in parte gli ospiti piccoli quando la camera è selezionata. Non provati nella partita: serpente, partenza di un ospite su schermo.
 - **Fase 4:** la scena mostra due camere con una parete in comune; toccandole si sceglie quale modificare. La regola è in `core/grid.gd` (D-021 e D-022: la vicina si muove solo se spinta), il disegno delle due modifiche in `core/room_drag.gd` e `scenes/room_editor/room_editor.gd`. La regola è confermata da Riccardo; la correzione D-022 non è ancora sull'iPhone. Da giudicare a mano: arredi molto piccoli mentre compaiono durante il trascinamento.
 - **Versione di Godot:** `4.7.2-stable` (`AGENTS.md`, sezione 1). Modelli di export installati in `~/Library/Application Support/Godot/export_templates/4.7.2.stable`.
 - **Repository:** https://github.com/BenaHQ/Folding_Rooms, collegato come remote `origin`.
@@ -27,13 +28,16 @@ Ogni agente aggiorna questo file a fine sessione: riscrive «Adesso» e «Prossi
 
 ## Prossimi passi
 
-1. Fase 5: ospiti, a partire dalla scelta del terzo ospite.
+1. Fase 6: salvataggio, che ora deve conservare anche monete, turni, fila e ospiti in camera.
 2. L'app sull'iPhone è ferma alla versione precedente a D-022 e, con l'account gratuito, scade dopo 7 giorni.
 
 ## Registro delle sessioni
 
 | Data | Agente | Fatto | Verificato |
 |---|---|---|---|
+| 2026-11-04 | Claude Code (Opus 5.5), Godot 4.7.2 | Fase 5 in commit locale | 120 test su 120 passano; Riccardo conferma che il ciclo funziona nel simulatore. Bilanciamento e tocco vero non provati |
+| 2026-11-04 | Claude Code (Opus 5.5), Godot 4.7.2 | Fase 5: fila di ospiti, turni, compensi e rifiuto (D-026); barra con ospite di turno e fila; monete e turni in alto | Import e controllo degli script senza errori; 120 test su 120 passano; nel simulatore iPhone 17, con tocchi simulati: serpente rifiutato, ghiro ospitato, monete 6 e turni 2, turni rimasti 2. Non provati: tocco vero, fluidità, partenza di un ospite su schermo, bilanciamento |
+| 2026-11-04 | Claude Code (Opus 5.5), Godot 4.7.2 | Fase 4 in commit e pull request aperta. Fase 5: bisogni, tre ospiti, regole di ingresso, schede, reazioni; la sagoma di prova è stata sostituita (D-024, D-025) | Import e controllo degli script senza errori; 105 test su 105 passano; nel simulatore iPhone 17, con tocchi simulati: giraffa rifiutata in 2×2, soffitto alzato, giraffa entra; ghiro entra nella seconda camera. Non provati: tocco vero, fluidità, serpente su schermo, reazioni osservate solo a fine animazione |
 | 2026-11-04 | Claude Code (Opus 5.5), Godot 4.7.2 | Compilata la libreria per simulatore `arm64` dai sorgenti e scritto `tools/run_ios_simulator.sh` (D-023) | L'app nativa si avvia nel simulatore iPhone 17 (iOS 27.2). Gesti simulati dallo strumento: tirando indietro la parete la camera vicina resta ferma; esito della spinta controllato su screenshot. Non provati: tocco vero e fluidità |
 | 2026-11-04 | Claude Code (Opus 5.5), Godot 4.7.2 | Corretta la regola: la vicina si muove solo se spinta (D-022) | Difetto riprodotto da 3 test prima della correzione; ora tutti i test passano. Non provata a mano né su iPhone. Una versione web di prova è stata creata e poi rimossa, su richiesta di Riccardo di usare l'app nativa |
 | 2026-11-04 | Claude Code (Opus 5.5), Godot 4.7.2 | Fase 4: regola della parete condivisa (D-021), `core/room_change.gd`, due camere selezionabili con anteprima di entrambe le modifiche; registrata D-020 | Import e controllo degli script senza errori; 86 test su 86 passano; spinta, rientro e rifiuto controllati su screenshot con tocchi simulati; compilazione e installazione su iPhone riuscite, avvio da terminale rifiutato perché il telefono era bloccato. Non provati: gesto col dito sulle due camere, fluidità |

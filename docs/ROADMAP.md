@@ -72,10 +72,12 @@
 
 **Obiettivo:** la forma della camera ha uno scopo.
 
-- [ ] Decisione: terzo ospite. Giraffa e serpente sono nel concept, gli altri suoi ospiti hanno bisogni ambientali. Proposta: un ospite piccolo che vuole una camera raccolta, così «più grande» non è sempre meglio.
-- [ ] `Guest` e `Need` come `Resource` in `data/`, regola con due soglie, «entra» e «sta bene» (D-019), con test.
-- [ ] Icona del bisogno e sagoma dell'ospite durante il trascinamento.
-- [ ] Assegnazione e reazione dell'ospite, con un'animazione semplice, diversa se l'ospite è stipato o sta bene (D-019).
+- [x] Decisione: terzo ospite, uno piccolo che vuole una camera raccolta, così «più grande» non è sempre meglio (D-024).
+- [x] `Guest` e `Need` come `Resource` in `data/`, regola con due soglie, «entra» e «sta bene» (D-019), con test.
+- [x] Icona del bisogno e sagoma dell'ospite durante il trascinamento.
+- [x] Assegnazione e reazione dell'ospite, con un'animazione semplice, diversa se l'ospite è stipato o sta bene (D-019).
+- [x] Ciclo di gioco: fila di ospiti, turni, compensi e rifiuto, con test (D-026).
+- [x] Riccardo prova il ciclo nel simulatore e conferma che funziona (D-026). Il bilanciamento di misure e valori resta aperto.
 
 ## Fase 6 — Salvataggio
 
@@ -103,7 +105,7 @@
 - [ ] Decisioni: lingue (proposta: italiano e inglese), versioni minime dei sistemi operativi, come accedere a un Mac con Xcode.
 - [ ] Guida di stile in `docs/STILE.md`, approvata da Riccardo: palette, forme, regole per camere e ospiti (compreso come si allungano, in base alla prova di stile della fase 3), componenti dell'interfaccia e icone.
 - [ ] Interfaccia (Hotel, Ospiti, Arredi, Progetti), aree sicure e testi con `tr()`.
-- [ ] Reception, sequenza dei primi minuti e primo compenso, con un'economia minima.
+- [ ] Reception e sequenza dei primi minuti. L'economia minima esiste già dalla fase 5 (D-026).
 - [ ] Grafica definitiva secondo la guida, prima su una camera e un ospite, poi su tutto il resto; audio; `docs/CREDITI.md`.
 - [ ] Prima build iOS su un iPhone vero, così i problemi emergono presto.
 

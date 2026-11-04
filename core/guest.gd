@@ -10,6 +10,9 @@ extends Resource
 ## NOTA GDSCRIPT: «extends Resource» crea un oggetto di dati salvabile in un file .tres.
 ## @export rende una variabile visibile nell'editor e salvabile in quel file.
 
+## Nome stabile della specie: è ciò che finisce nel salvataggio. Non va cambiato, altrimenti i
+## salvataggi esistenti non ritrovano più l'ospite.
+@export var id: String = ""
 ## Il bisogno di forma dell'ospite.
 @export var need: Need
 ## Per quanti turni resta, compreso quello in cui arriva.

@@ -154,3 +154,9 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Motivo:** una fila crea la pressione che le schede libere non davano, e i compensi legati al comfort applicano D-019. Le regole non bloccano le prove con i giocatori: una condizione di sconfitta e i costi delle modifiche si valutano dopo.
 - **Deciso da:** Riccardo per il ciclo e le quattro regole; Claude Code per valori e per il trattamento delle camere troppo grandi.
 - **Sostituisce:** in D-019, la permanenza più breve per chi è stipato: la permanenza ora è fissa, cambia il compenso. In D-025, la scelta libera dell'ospite dalla scheda e l'uscita a comando. Anticipa l'economia minima prevista dalla scaletta in fase 8.
+
+## D-027 — 2026-11-04 — Salvataggio locale della partita
+
+- **Decisione:** la partita si salva in `user://hotel_save.json`, testo JSON con `format_version` 1: monete, turni, camere, ospiti con i turni rimasti, fila e stato del generatore casuale, così gli arrivi futuri non cambiano. Il salvataggio avviene quando l'app passa in secondo piano, alla chiusura della finestra e con Indietro, non a ogni mossa. Al caricamento tutto ripassa dalle regole di `Grid`. Un file danneggiato, di un'altra versione o con una partita impossibile non blocca il gioco: si inizia una partita nuova e il file resta da parte come `hotel_save.json.unreadable`. Su Android, Indietro annulla il gesto in corso, poi toglie la selezione, poi salva ed esce.
+- **Motivo:** applica `AGENTS.md`, sezioni 6 e 7. JSON non può eseguire codice, a differenza di una `Resource`. Mettere da parte il file evita di perdere dati che una versione futura potrebbe ancora leggere.
+- **Deciso da:** Riccardo per il salvataggio, con la scaletta (D-007); Claude Code per formato, momenti di salvataggio e comportamento di Indietro, da riconsiderare se la prova con i giocatori lo richiede.

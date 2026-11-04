@@ -112,3 +112,10 @@ func test_export_presets_exclude_development_files() -> void:
 func test_project_has_icon() -> void:
 	var icon_path: String = ProjectSettings.get_setting("application/config/icon")
 	assert_true(ResourceLoader.exists(icon_path), "l'icona indicata nel progetto deve esistere")
+
+
+## Il tasto Indietro di Android non deve chiudere il gioco da solo: deve prima annullare ciò che è in
+## corso e salvare. Si controlla SceneTree, l'oggetto di Godot che esegue il gioco e applica
+## l'impostazione: così il controllo fallisce anche se il nome dell'impostazione fosse sbagliato.
+func test_back_button_does_not_quit_automatically() -> void:
+	assert_false(get_tree().is_quit_on_go_back())

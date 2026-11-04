@@ -6,7 +6,9 @@ Ogni agente aggiorna questo file a fine sessione: riscrive «Adesso» e «Prossi
 
 ## Adesso
 
-- **Fase:** fase 5 della scaletta (`docs/ROADMAP.md`) completata e in commit locale sul branch `feature/fase-5-ospiti`, che parte da `feature/fase-4-due-camere`; non inviata al remote. Le fasi 0-4 sono nella pull request https://github.com/BenaHQ/Folding_Rooms/pull/1, aperta e non unita a `main`.
+- **Fase:** fase 6 della scaletta (`docs/ROADMAP.md`) completata, non ancora in commit, sul branch `feature/fase-6-salvataggio`, che parte da `feature/fase-5-ospiti`. La fase 5 è sul remote nel suo branch. Le fasi 0-4 sono nella pull request https://github.com/BenaHQ/Folding_Rooms/pull/1, aperta e non unita a `main`.
+- **Fase 6:** `core/save_file.gd` scrive e legge il file `user://hotel_save.json`; `HotelSession.to_data()` e `from_data()` convertono la partita e la ricontrollano con le regole di `Grid`; `scenes/main/main.gd` carica all'avvio e salva alla pausa, alla chiusura della finestra e con Indietro (D-027). Provato nel simulatore iPhone 17; non provati: iPhone fisico, tasto Indietro su Android (solo simulato nei test). Se l'app si blocca o viene terminata senza passare in secondo piano, si perde ciò che è stato fatto dall'ultima pausa. Per ricominciare da zero oggi si può solo disinstallare l'app: non c'è un comando «nuova partita».
+- **Dati degli ospiti e salvataggi:** il campo `id` nei file di `data/guests/` non va cambiato. Se un ribilanciamento rende una camera salvata troppo piccola per il suo ospite, l'intero salvataggio viene messo da parte come non leggibile: prima di pubblicare servirà una regola di aggiornamento dei salvataggi.
 - **Fase 5:** dati in `data/guests/`, regole in `core/need.gd`, `core/guest.gd` e `core/grid.gd`, partita in `core/hotel_session.gd` e `core/guest_queue.gd` (D-026), disegno in `scenes/room_editor/guest_painter.gd`, interfaccia in `ui/guest_bar/` e `ui/hud/`. Misure e valori sono proposte da bilanciare (D-025, D-026). Il ciclo è confermato da Riccardo nel simulatore. Da controllare: bilanciamento; se con due camere ci si trova spesso a rifiutare; la maniglia del pavimento copre in parte gli ospiti piccoli quando la camera è selezionata. Non provati nella partita: serpente, partenza di un ospite su schermo.
 - **Fase 4:** la scena mostra due camere con una parete in comune; toccandole si sceglie quale modificare. La regola è in `core/grid.gd` (D-021 e D-022: la vicina si muove solo se spinta), il disegno delle due modifiche in `core/room_drag.gd` e `scenes/room_editor/room_editor.gd`. La regola è confermata da Riccardo; la correzione D-022 non è ancora sull'iPhone. Da giudicare a mano: arredi molto piccoli mentre compaiono durante il trascinamento.
 - **Versione di Godot:** `4.7.2-stable` (`AGENTS.md`, sezione 1). Modelli di export installati in `~/Library/Application Support/Godot/export_templates/4.7.2.stable`.
@@ -28,13 +30,14 @@ Ogni agente aggiorna questo file a fine sessione: riscrive «Adesso» e «Prossi
 
 ## Prossimi passi
 
-1. Fase 6: salvataggio, che ora deve conservare anche monete, turni, fila e ospiti in camera.
+1. Fase 7: prova con 3-5 giocatori, con la build sul telefono. Riccardo decide quando e con chi.
 2. L'app sull'iPhone è ferma alla versione precedente a D-022 e, con l'account gratuito, scade dopo 7 giorni.
 
 ## Registro delle sessioni
 
 | Data | Agente | Fatto | Verificato |
 |---|---|---|---|
+| 2026-11-04 | Claude Code (Opus 5.5), Godot 4.7.2 | Fase 6: salvataggio in JSON con versione e file temporaneo, ricaricamento controllato, salvataggio alla pausa, tasto Indietro (D-027) | Import e controllo degli script senza errori nuovi; 154 test su 154 passano; 5 difetti introdotti apposta vengono scoperti dai test, dopo averne aggiunto uno per la scrittura diretta. Nel simulatore iPhone 17, con tocchi simulati: dopo Home e chiusura, monete, turni, camere, ospite e fila riprendono uguali e la partita continua; un file troncato porta a una partita nuova e viene messo da parte. Non provati: iPhone fisico, tasto Indietro vero su Android |
 | 2026-11-04 | Claude Code (Opus 5.5), Godot 4.7.2 | Fase 5 in commit locale | 120 test su 120 passano; Riccardo conferma che il ciclo funziona nel simulatore. Bilanciamento e tocco vero non provati |
 | 2026-11-04 | Claude Code (Opus 5.5), Godot 4.7.2 | Fase 5: fila di ospiti, turni, compensi e rifiuto (D-026); barra con ospite di turno e fila; monete e turni in alto | Import e controllo degli script senza errori; 120 test su 120 passano; nel simulatore iPhone 17, con tocchi simulati: serpente rifiutato, ghiro ospitato, monete 6 e turni 2, turni rimasti 2. Non provati: tocco vero, fluidità, partenza di un ospite su schermo, bilanciamento |
 | 2026-11-04 | Claude Code (Opus 5.5), Godot 4.7.2 | Fase 4 in commit e pull request aperta. Fase 5: bisogni, tre ospiti, regole di ingresso, schede, reazioni; la sagoma di prova è stata sostituita (D-024, D-025) | Import e controllo degli script senza errori; 105 test su 105 passano; nel simulatore iPhone 17, con tocchi simulati: giraffa rifiutata in 2×2, soffitto alzato, giraffa entra; ghiro entra nella seconda camera. Non provati: tocco vero, fluidità, serpente su schermo, reazioni osservate solo a fine animazione |

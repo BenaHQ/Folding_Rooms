@@ -11,6 +11,8 @@ extends GutTest
 
 ## La scena principale, che contiene barra e camere.
 const MAIN_SCENE_PATH: String = "res://scenes/main/main.tscn"
+## Percorso di un salvataggio che non esiste.
+const NO_SAVE_PATH: String = "user://test_guest_bar_no_save.json"
 ## Area sensibile minima di un comando, in pixel: vale 48 dp su un telefono largo 360 dp.
 const MIN_TOUCH_PIXELS: float = 96.0
 
@@ -27,7 +29,10 @@ var _hud: Hud
 ## GUT chiama questa funzione prima di ogni test.
 func before_each() -> void:
 	var scene: PackedScene = load(MAIN_SCENE_PATH)
-	_main = add_child_autofree(scene.instantiate())
+	var main_scene: Node = scene.instantiate()
+	# Un percorso senza file: questi test non devono leggere il salvataggio vero.
+	main_scene.save_path = NO_SAVE_PATH
+	_main = add_child_autofree(main_scene)
 	_bar = _main.get_node("GuestBar")
 	_editor = _main.get_node("RoomEditor")
 	_hud = _main.get_node("Hud")

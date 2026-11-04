@@ -179,8 +179,8 @@ func _ready() -> void:
 	# Le immagini di RoomPainter sono piccole e devono ripetersi invece di fermarsi al bordo.
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 
-	_add_initial_room(INITIAL_ROOM_CELLS, RoomPainter.new())
-	_add_initial_room(SECOND_ROOM_CELLS, RoomPainter.new(RoomPainter.ROSE_WALLPAPER_LIGHT, RoomPainter.ROSE_WALLPAPER_DARK, RoomPainter.ROSE_WAINSCOT_COLOR))
+	_add_initial_room(INITIAL_ROOM_CELLS)
+	_add_initial_room(SECOND_ROOM_CELLS)
 	room = rooms[0]
 
 	# randi() dà un numero casuale: ogni partita ha un ordine di arrivo diverso.
@@ -243,6 +243,37 @@ func start_session(queue: GuestQueue) -> void:
 	session_changed.emit()
 
 
+## Sostituisce camere e partita con una partita ricaricata da un salvataggio. Va chiamata all'avvio,
+## prima di qualsiasi gesto. Il salvataggio contiene almeno una camera: lo controlla HotelSession.
+func restore_session(saved_session: HotelSession) -> void:
+	_grid = saved_session.get_grid()
+	rooms.clear()
+	_painters.clear()
+	_visual_rects.clear()
+
+	for saved_room: Room in _grid.get_rooms():
+		_show_room(saved_room)
+	room = rooms[0]
+
+	session = saved_session
+	session_changed.emit()
+	queue_redraw()
+
+
+## Gestisce il tasto Indietro, che annulla l'azione in corso: prima il gesto, poi la selezione.
+## Restituisce true se c'era qualcosa da annullare, false se il tasto resta da gestire a chi chiama.
+func handle_back() -> bool:
+	if _drag != null or _is_recognizing_gesture:
+		_cancel_drag()
+		return true
+
+	if _is_room_selected:
+		_set_room_selected(false)
+		return true
+
+	return false
+
+
 ## Rifiuta l'ospite di turno e conclude il turno. Durante un trascinamento non fa nulla: un secondo
 ## dito sul pulsante non deve cambiare la partita mentre il primo sposta una parete.
 func refuse_current_guest() -> void:
@@ -279,15 +310,22 @@ func get_handle_position(side: Room.MovableSide) -> Vector2:
 
 ## Crea una camera iniziale. La posizione rispetta le regole per costruzione: se non fosse
 ## così sarebbe un errore di programmazione da far notare subito.
-func _add_initial_room(cells: Rect2i, painter: RoomPainter) -> void:
+func _add_initial_room(cells: Rect2i) -> void:
 	var new_room: Room = Room.new(cells)
 	if not _grid.add_room(new_room):
 		push_error("Una camera iniziale non rispetta le regole della griglia.")
 		return
 
+	_show_room(new_room)
+
+
+## Aggiunge una camera già presente nella griglia a quelle disegnate. Le camere si alternano tra due
+## aspetti in base alla loro posizione nell'elenco, così l'aspetto non cambia dopo un salvataggio.
+func _show_room(new_room: Room) -> void:
+	var is_even_position: bool = rooms.size() % 2 == 0
+	_painters[new_room] = RoomPainter.new() if is_even_position else RoomPainter.new(RoomPainter.ROSE_WALLPAPER_LIGHT, RoomPainter.ROSE_WALLPAPER_DARK, RoomPainter.ROSE_WAINSCOT_COLOR)
+	_visual_rects[new_room] = _cells_to_pixels(new_room.cells)
 	rooms.append(new_room)
-	_painters[new_room] = painter
-	_visual_rects[new_room] = _cells_to_pixels(cells)
 
 
 ## Gestisce un dito che tocca o lascia lo schermo.

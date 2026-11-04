@@ -18,6 +18,11 @@ const PROTOTYPE_GUESTS: Array[Guest] = [
 	preload("res://data/guests/snake.tres"),
 	preload("res://data/guests/dormouse.tres"),
 ]
+## Nomi dei campi nel salvataggio.
+const LINE_KEY: String = "line"
+const RANDOM_STATE_KEY: String = "random_state"
+## Seme di passaggio per una fila ricaricata: il suo stato viene subito sostituito da quello salvato.
+const UNUSED_SEED: int = 0
 
 ## Le specie che finiscono nel sacchetto.
 var _species: Array[Guest]
@@ -47,6 +52,48 @@ func advance() -> void:
 	# Serve se nessuno ha ancora guardato la fila: il primo ospite deve esistere per uscirne.
 	peek(1)
 	_line.pop_front()
+
+
+## Restituisce lo stato della fila in valori semplici, adatti a un file di salvataggio. Non modifica
+## nulla. Lo stato del generatore è scritto come testo: JSON salva i numeri con una precisione
+## minore di quella che serve qui, e l'ordine futuro degli arrivi cambierebbe.
+func to_data() -> Dictionary:
+	var line_ids: Array[String] = []
+	for guest: Guest in _line:
+		line_ids.append(guest.id)
+
+	return {LINE_KEY: line_ids, RANDOM_STATE_KEY: str(_random.state)}
+
+
+## Ricrea una fila dai valori di to_data(). species elenca le specie possibili. Restituisce null se
+## i valori non sono validi. Gli ospiti arrivano nello stesso ordine in cui sarebbero arrivati.
+static func from_data(data: Dictionary, species: Array[Guest]) -> GuestQueue:
+	var line_ids: Variant = data.get(LINE_KEY)
+	var random_state: Variant = data.get(RANDOM_STATE_KEY)
+	if not line_ids is Array or not random_state is String or not (random_state as String).is_valid_int():
+		return null
+
+	var queue: GuestQueue = GuestQueue.new(species, UNUSED_SEED)
+	queue._random.state = (random_state as String).to_int()
+
+	for guest_id: Variant in line_ids:
+		var guest: Guest = find_guest(species, guest_id)
+		if guest == null:
+			return null
+		queue._line.append(guest)
+
+	return queue
+
+
+## Restituisce la specie con il nome indicato, oppure null se non esiste o se guest_id non è un
+## testo. guest_id arriva da un file: il suo tipo non è garantito.
+static func find_guest(species: Array[Guest], guest_id: Variant) -> Guest:
+	if guest_id is String:
+		for guest: Guest in species:
+			if guest.id == guest_id:
+				return guest
+
+	return null
 
 
 ## Aggiunge in fondo alla fila un sacchetto mescolato. Usa il metodo di Fisher-Yates: dall'ultima

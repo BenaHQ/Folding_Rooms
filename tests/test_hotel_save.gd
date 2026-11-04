@@ -1,0 +1,266 @@
+extends GutTest
+## Test del contenuto del salvataggio: partita, camere, ospiti e fila.
+##
+## COMPORTAMENTO PROTETTO: una partita ricaricata prosegue esattamente come quella originale, fino
+## all'ordine dei prossimi ospiti. Un file modificato o danneggiato non può creare una partita
+## che le regole non permetterebbero: viene rifiutato per intero.
+## CHI LO USA: GUT, lo strumento che esegue i test automatici. Il comando per avviarli è scritto
+## in docs/STATO.md.
+## PERCHÉ È SEPARATO: non tocca il disco (test_save_file.gd) né le scene (test_main_save.gd).
+## NOTA GDSCRIPT: «extends GutTest» dà a questo script le funzioni di controllo di GUT.
+## duplicate(true) crea una copia di un Dictionary comprese le parti al suo interno.
+## COORDINATE: tutto è in celle.
+
+## Ospiti usati nei test.
+const SPECIES: Array[Guest] = GuestQueue.PROTOTYPE_GUESTS
+const GIRAFFE: Guest = preload("res://data/guests/giraffe.tres")
+## Seme fisso, per avere sempre lo stesso ordine di arrivo.
+const TEST_SEED: int = 42
+## Semi provati per lo stato del generatore: alcuni danno uno stato che, scritto, è negativo.
+const SEEDS_TO_CHECK: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8]
+## Quanti ospiti futuri si confrontano: più di un sacchetto.
+const FUTURE_GUESTS_TO_CHECK: int = 30
+## Quanti turni si giocano dopo il caricamento.
+const TURNS_TO_PLAY: int = 12
+## Valori che non sono mai un numero valido in un salvataggio. Il numero enorme perderebbe precisione.
+const BAD_COUNTS: Array = [-1.0, 1.5, "3", null, [], 1e300]
+## I dati di una partita valida, come arrivano da un file: i numeri sono float.
+const VALID_DATA: Dictionary = {
+	"coins": 17.0,
+	"turns_played": 5.0,
+	"rooms": [
+		{"x": 2.0, "y": 4.0, "width": 2.0, "height": 2.0},
+		{"x": 4.0, "y": 4.0, "width": 2.0, "height": 3.0, "guest": "giraffe", "turns_left": 2.0},
+	],
+	"queue": {"line": ["snake", "dormouse"], "random_state": "12345"},
+}
+
+
+## Restituisce una copia dei dati validi, da modificare per il singolo test.
+func _valid_data() -> Dictionary:
+	return VALID_DATA.duplicate(true)
+
+
+## Fa passare i dati attraverso il testo JSON, come avviene sul disco: è lì che i numeri cambiano
+## tipo e che gli interi molto grandi perderebbero precisione.
+func _through_json(data: Dictionary) -> Dictionary:
+	return JSON.parse_string(JSON.stringify(data))
+
+
+## Crea una partita con una camera alta 3 e larga 2 e una libera, con la fila indicata.
+func _make_session(queue: GuestQueue) -> HotelSession:
+	var grid: Grid = Grid.new(Envelope.new())
+	grid.add_room(Room.new(Rect2i(0, 0, 2, 3)))
+	grid.add_room(Room.new(Rect2i(2, 0, 2, 2)))
+	return HotelSession.new(grid, queue)
+
+
+## Controlla che i dati vengano rifiutati.
+func _assert_rejected(data: Dictionary, message: String) -> void:
+	assert_null(HotelSession.from_data(data, SPECIES), message)
+
+
+## I dati validi di questo file devono essere accettati: altrimenti i rifiuti qui sotto non
+## dimostrerebbero nulla.
+func test_valid_data_is_accepted() -> void:
+	var session: HotelSession = HotelSession.from_data(_valid_data(), SPECIES)
+
+	assert_not_null(session)
+	assert_eq(session.coins, 17)
+	assert_eq(session.turns_played, 5)
+	var rooms: Array[Room] = session.get_grid().get_rooms()
+	assert_eq(rooms[0].cells, Rect2i(2, 4, 2, 2))
+	assert_null(rooms[0].guest)
+	assert_eq(rooms[1].guest, GIRAFFE)
+	assert_eq(rooms[1].turns_left, 2)
+	assert_eq(session.get_current_guest().id, "snake")
+
+
+## Monete, turni, camere, ospiti e turni rimasti tornano come prima.
+func test_round_trip_restores_game_state() -> void:
+	var session: HotelSession = _make_session(GuestQueue.new([GIRAFFE], TEST_SEED))
+	var room: Room = session.get_grid().get_rooms()[0]
+	session.host_current_guest(room)
+	session.refuse_current_guest()
+
+	var loaded: HotelSession = HotelSession.from_data(_through_json(session.to_data()), SPECIES)
+	assert_not_null(loaded)
+	if loaded == null:
+		return
+
+	assert_eq(loaded.coins, session.coins)
+	assert_eq(loaded.turns_played, session.turns_played)
+	var loaded_rooms: Array[Room] = loaded.get_grid().get_rooms()
+	assert_eq(loaded_rooms.size(), 2)
+	assert_eq(loaded_rooms[0].cells, room.cells)
+	assert_eq(loaded_rooms[0].guest, GIRAFFE)
+	assert_eq(loaded_rooms[0].turns_left, room.turns_left)
+	assert_null(loaded_rooms[1].guest)
+	assert_eq(loaded_rooms[1].turns_left, 0)
+
+
+## La fila ricaricata prosegue con gli stessi ospiti, anche oltre quelli già pescati. Con molti semi,
+## perché lo stato del generatore è un intero enorme che JSON da solo non conserverebbe.
+func test_queue_resumes_same_order_after_loading() -> void:
+	var found_negative_state: bool = false
+
+	for rng_seed: int in SEEDS_TO_CHECK:
+		var queue: GuestQueue = GuestQueue.new(SPECIES, rng_seed)
+		queue.peek(2)
+		queue.advance()
+
+		var data: Dictionary = _through_json(queue.to_data())
+		found_negative_state = found_negative_state or (data[GuestQueue.RANDOM_STATE_KEY] as String).begins_with("-")
+		var loaded: GuestQueue = GuestQueue.from_data(data, SPECIES)
+		# Senza questo controllo, un errore su null fermerebbe l'intera esecuzione dei test.
+		assert_not_null(loaded)
+		if loaded == null:
+			return
+
+		assert_eq(loaded.peek(FUTURE_GUESTS_TO_CHECK), queue.peek(FUTURE_GUESTS_TO_CHECK))
+
+	# Il valore negativo è il caso più delicato: i semi scelti devono metterlo alla prova.
+	assert_true(found_negative_state)
+
+
+## Una partita ricaricata e l'originale, giocate allo stesso modo, restano identiche.
+func test_loaded_game_plays_on_identically() -> void:
+	var session: HotelSession = _make_session(GuestQueue.new(SPECIES, TEST_SEED))
+	session.get_upcoming_guests()
+	var loaded: HotelSession = HotelSession.from_data(_through_json(session.to_data()), SPECIES)
+	assert_not_null(loaded)
+	if loaded == null:
+		return
+
+	for turn: int in TURNS_TO_PLAY:
+		assert_eq(loaded.get_current_guest(), session.get_current_guest())
+		# Prova a sistemare ogni ospite nella prima camera, altrimenti lo rifiuta.
+		if session.host_current_guest(session.get_grid().get_rooms()[0]) == null:
+			session.refuse_current_guest()
+		if loaded.host_current_guest(loaded.get_grid().get_rooms()[0]) == null:
+			loaded.refuse_current_guest()
+
+	assert_eq(loaded.coins, session.coins)
+	assert_eq(loaded.turns_played, session.turns_played)
+
+
+## Ogni parte obbligatoria che manca rende il salvataggio non valido.
+func test_missing_fields_are_rejected() -> void:
+	for key: String in VALID_DATA:
+		var data: Dictionary = _valid_data()
+		data.erase(key)
+		_assert_rejected(data, "Manca «%s»" % key)
+
+	for key: String in ["x", "y", "width", "height"]:
+		var data: Dictionary = _valid_data()
+		data["rooms"][0].erase(key)
+		_assert_rejected(data, "Manca «%s» nella camera" % key)
+
+
+## I numeri devono essere interi non negativi e precisi, ovunque si trovino.
+func test_bad_numbers_are_rejected() -> void:
+	for bad_count: Variant in BAD_COUNTS:
+		for key: String in ["coins", "turns_played"]:
+			var data: Dictionary = _valid_data()
+			data[key] = bad_count
+			_assert_rejected(data, "%s = %s" % [key, bad_count])
+
+		for key: String in ["x", "y", "width", "height", "turns_left"]:
+			var data: Dictionary = _valid_data()
+			data["rooms"][1][key] = bad_count
+			_assert_rejected(data, "%s = %s nella camera" % [key, bad_count])
+
+
+## Parti del tipo sbagliato non devono causare errori: vengono rifiutate.
+func test_wrong_types_are_rejected() -> void:
+	var data: Dictionary = _valid_data()
+	data["rooms"] = "camere"
+	_assert_rejected(data, "Camere non in elenco")
+
+	data = _valid_data()
+	data["rooms"] = [1.0]
+	_assert_rejected(data, "Camera non è un Dictionary")
+
+	data = _valid_data()
+	data["queue"] = []
+	_assert_rejected(data, "Fila non è un Dictionary")
+
+	data = _valid_data()
+	data["queue"]["line"] = "snake"
+	_assert_rejected(data, "Fila non in elenco")
+
+	data = _valid_data()
+	data["queue"]["line"] = [3.0]
+	_assert_rejected(data, "Ospite in fila non è un testo")
+
+	data = _valid_data()
+	data["rooms"][1]["guest"] = 3.0
+	_assert_rejected(data, "Ospite in camera non è un testo")
+
+
+## Una partita senza camere non esiste: la scena avrebbe bisogno di almeno una camera attiva.
+func test_game_without_rooms_is_rejected() -> void:
+	var data: Dictionary = _valid_data()
+	data["rooms"] = []
+	_assert_rejected(data, "Nessuna camera")
+
+
+## Le regole di Grid valgono anche per il file: niente camere fuori posto o sovrapposte.
+func test_rooms_breaking_grid_rules_are_rejected() -> void:
+	var data: Dictionary = _valid_data()
+	data["rooms"][0]["x"] = 3.0
+	_assert_rejected(data, "Camere sovrapposte")
+
+	data = _valid_data()
+	data["rooms"][0]["x"] = 5.0
+	_assert_rejected(data, "Camera fuori dall'involucro")
+
+	data = _valid_data()
+	data["rooms"][0]["width"] = 0.0
+	_assert_rejected(data, "Camera senza larghezza")
+
+
+## Gli ospiti devono esistere, entrare nella camera e avere ancora turni da passare.
+func test_invalid_guests_are_rejected() -> void:
+	var data: Dictionary = _valid_data()
+	data["rooms"][1]["guest"] = "unicorno"
+	_assert_rejected(data, "Specie inesistente")
+
+	data = _valid_data()
+	data["rooms"][1]["turns_left"] = 0.0
+	_assert_rejected(data, "Ospite senza turni")
+
+	data = _valid_data()
+	data["rooms"][1].erase("turns_left")
+	_assert_rejected(data, "Turni mancanti")
+
+	# La giraffa ha bisogno di un'altezza di almeno 3 celle: questa camera ne ha 2.
+	data = _valid_data()
+	data["rooms"][0]["guest"] = "giraffe"
+	data["rooms"][0]["turns_left"] = 1.0
+	_assert_rejected(data, "L'ospite non entra")
+
+
+## La fila deve contenere solo specie note e uno stato del generatore leggibile.
+func test_invalid_queue_is_rejected() -> void:
+	var data: Dictionary = _valid_data()
+	data["queue"]["line"] = ["snake", "unicorno"]
+	_assert_rejected(data, "Specie inesistente in fila")
+
+	data = _valid_data()
+	data["queue"]["random_state"] = "non è un numero"
+	_assert_rejected(data, "Stato non numerico")
+
+	data = _valid_data()
+	data["queue"]["random_state"] = 12345.0
+	_assert_rejected(data, "Stato non scritto come testo")
+
+
+## Ogni specie deve avere un nome proprio: il salvataggio riconosce gli ospiti da quello.
+func test_every_species_has_a_unique_id() -> void:
+	var ids: Dictionary[String, bool] = {}
+	for guest: Guest in SPECIES:
+		assert_ne(guest.id, "")
+		ids[guest.id] = true
+
+	assert_eq(ids.size(), SPECIES.size())

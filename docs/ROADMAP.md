@@ -83,9 +83,9 @@
 
 **Obiettivo:** la disposizione dell'hotel sopravvive alla chiusura dell'app.
 
-- [ ] Formato con numero di versione in `user://`, scrittura su file temporaneo e poi rinomina, nessuna `Resource` caricata da file modificabili.
-- [ ] Salvataggio alla pausa dell'app e gestione del tasto Indietro.
-- [ ] Test: salva e ricarica, file danneggiato, versione diversa.
+- [x] Formato con numero di versione in `user://`, scrittura su file temporaneo e poi rinomina, nessuna `Resource` caricata da file modificabili.
+- [x] Salvataggio alla pausa dell'app e gestione del tasto Indietro (D-027). Il tasto Indietro vero è da provare su Android.
+- [x] Test: salva e ricarica, file danneggiato, versione diversa.
 
 ## Fase 7 — Prova con i giocatori
 

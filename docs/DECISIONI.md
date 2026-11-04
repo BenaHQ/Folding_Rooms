@@ -205,3 +205,12 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Decisione:** ogni ospite in arrivo ha valori propri di permanenza e compenso, estratti entro un margine della sua specie, e la scheda mostra quelli. Margini iniziali, in più o in meno: permanenza 1 turno per tutti; compenso da comodo 2 monete, 1 per il ghiro; compenso da scomodo 1 moneta. Stare comodi rende sempre più che stare scomodi, anche nel caso peggiore (D-019). I valori restano nel salvataggio, e lo stesso seme dà gli stessi ospiti.
 - **Motivo:** Riccardo vuole che gli ospiti di una specie non siano tutti uguali.
 - **Deciso da:** Riccardo per gli intervalli; Claude Code per i margini, da bilanciare provando. I margini stanno in `data/guests/`.
+
+## D-034 — 2026-11-04 — Progressione più semplice
+
+- **Decisione:** gli arrivi al giorno sono un terzo delle camere, per eccesso (fino a 3 camere 1 arrivo, da 4 a 6 camere 2, da 7 a 9 camere 3). Le permanenze scendono a circa 2 turni, da 2 a 3 con il margine: un ospite estratto non resta mai un turno solo, perché sparirebbe appena entrato. Le misure degli ospiti non cambiano.
+- **Motivo:** Riccardo riferisce di non riuscire a sistemare tutti gli ospiti fin dall'inizio. Con la metà delle camere in arrivo e permanenze di 3 turni, gli ospiti erano in media una volta e mezza le camere: era impossibile sistemarli tutti. Il giocatore automatico ne rifiutava il 18-34%.
+- **Scartato:** Claude Code aveva abbassato anche le misure di ingresso di giraffa e serpente, così da entrare nelle camere iniziali senza modificarle. Riccardo l'ha rifiutato: stare stipati e stare comodi devono restare misure diverse e il gesto deve servire. Giraffa e serpente vanno quindi ancora adattati prima di entrare.
+- **Controllo:** stessa simulazione, 40 partite da 40 giorni, comprando appena possibile: rifiutati 0% al giorno 1, 12% nei giorni 1-3, 8% nei giorni 4-10, 5% nei giorni 11-20, 7% dopo; nei giorni 21-40 circa 9 camere e 7 occupate. Il giocatore automatico sceglie male e non sposta le camere, quindi i numeri indicano solo l'ordine di grandezza. Una persona non è ancora stata misurata.
+- **Deciso da:** Riccardo per l'obiettivo e per le misure; Claude Code per i valori, confermati da Riccardo senza ancora una prova misurata.
+- **Sostituisce:** in D-029, la formula degli arrivi; in D-026, D-032 e D-033, le permanenze iniziali.

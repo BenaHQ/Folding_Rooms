@@ -261,7 +261,9 @@ func test_built_room_works_like_any_other() -> void:
 func _make_session_with_small_rooms(room_count: int, guest: Guest) -> HotelSession:
 	var grid: Grid = Grid.new(Envelope.new())
 	for index: int in room_count:
-		assert_true(grid.add_room(Room.new(Rect2i(index, 0, 1, 1))))
+		# Le camere riempiono l'involucro riga per riga: posmod() è il resto della divisione.
+		var cell: Vector2i = Vector2i(posmod(index, Envelope.PROTOTYPE_WIDTH_CELLS), floori(float(index) / Envelope.PROTOTYPE_WIDTH_CELLS))
+		assert_true(grid.add_room(Room.new(Rect2i(cell, Vector2i.ONE))))
 	return HotelSession.new(grid, GuestQueue.new([guest], TEST_SEED))
 
 
@@ -289,12 +291,12 @@ func test_more_rooms_can_be_occupied_than_a_guest_stay() -> void:
 			session.host_current_guest(free_rooms[0])
 		most_occupied = maxi(most_occupied, _count_occupied(session))
 
-	assert_eq(most_occupied, 6)
+	assert_gt(most_occupied, DORMOUSE.stay_turns)
 
 
-## Gli arrivi al giorno sono la metà delle camere, per eccesso.
+## Gli arrivi al giorno sono un terzo delle camere, per eccesso (D-034).
 func test_daily_arrivals_grow_with_rooms() -> void:
-	var expected_arrivals: Dictionary[int, int] = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3}
+	var expected_arrivals: Dictionary[int, int] = {1: 1, 2: 1, 3: 1, 4: 2, 6: 2, 7: 3, 9: 3, 10: 4}
 
 	for room_count: int in expected_arrivals:
 		assert_eq(_make_session_with_small_rooms(room_count, DORMOUSE).get_daily_arrivals(), expected_arrivals[room_count])
@@ -348,11 +350,13 @@ func test_guest_who_does_not_fit_keeps_arrival() -> void:
 
 ## Una camera costruita durante la giornata fa crescere gli arrivi solo da quella dopo.
 func test_room_built_during_day_counts_from_next_day() -> void:
-	var session: HotelSession = _make_session_with_coins(30)
+	var session: HotelSession = _make_session_with_coins(80)
 	assert_eq(session.arrivals_left, 1)
 
 	session.build_room(Vector2i(0, 0))
+	session.build_room(Vector2i(1, 0))
 
+	assert_eq(session.get_daily_arrivals(), 2)
 	assert_eq(session.arrivals_left, 1)
 	session.refuse_current_guest()
 	assert_eq(session.arrivals_left, 2)
@@ -570,7 +574,7 @@ func test_rolled_values_stay_in_small_range() -> void:
 			assert_lte(absi(visit.stay_turns - species.stay_turns), species.stay_turns_spread, species.id)
 			assert_lte(absi(visit.comfortable_pay - species.comfortable_pay), species.comfortable_pay_spread, species.id)
 			assert_lte(absi(visit.uncomfortable_pay - species.uncomfortable_pay), species.uncomfortable_pay_spread, species.id)
-			assert_gte(visit.stay_turns, 1, species.id)
+			assert_gte(visit.stay_turns, Guest.MIN_ROLLED_STAY_TURNS, species.id)
 
 		assert_gt(stays.size(), 1, species.id)
 		assert_gt(pays.size(), 1, species.id)
@@ -623,3 +627,31 @@ func _make_session_with_small_rooms_from_queue(queue: GuestQueue) -> HotelSessio
 	for index: int in 2:
 		assert_true(grid.add_room(Room.new(Rect2i(index, 0, 1, 1))))
 	return HotelSession.new(grid, queue)
+
+
+## La partita vera non deve costringere a rifiutare (D-034): in media, per ogni numero di camere, gli
+## ospiti che arrivano e restano non devono superare le camere. Conta arrivi al giorno × permanenza.
+func test_hotel_is_not_overbooked_by_design() -> void:
+	var species: Array[Guest] = GuestQueue.PROTOTYPE_GUESTS + GuestQueue.LIGHT_GUESTS
+	var total_stay: float = 0.0
+	for guest: Guest in species:
+		total_stay += guest.stay_turns
+	# Le permanenze estratte non scendono sotto il minimo: la media reale è un po' più alta di quella
+	# dei dati, e il margine di mezzo turno ne tiene conto.
+	var average_stay: float = total_stay / species.size()
+
+	for room_count: int in range(2, 13):
+		var session: HotelSession = _make_session_with_small_rooms(room_count, DORMOUSE)
+		assert_lte(session.get_daily_arrivals() * average_stay, float(room_count), "%d camere" % room_count)
+
+
+## Stare stipati e stare comodi devono restare due misure diverse per giraffa e serpente (D-019): è
+## ciò che rende il gesto utile, ed è il motivo per cui D-034 non ha abbassato le loro misure.
+func test_size_guests_keep_separate_cramped_and_comfortable_sizes() -> void:
+	var giraffe: Need = load("res://data/guests/giraffe.tres").need
+	var snake: Need = load("res://data/guests/snake.tres").need
+
+	assert_eq(giraffe.enter_size, Vector2i(1, 3))
+	assert_eq(giraffe.comfortable_min_size, Vector2i(2, 3))
+	assert_eq(snake.enter_size, Vector2i(3, 1))
+	assert_eq(snake.comfortable_min_size, Vector2i(4, 1))

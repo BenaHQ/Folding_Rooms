@@ -25,9 +25,9 @@ enum LightingAction {
 
 ## Quanti ospiti in fila si vedono oltre a quello di turno.
 const VISIBLE_UPCOMING_GUESTS: int = 2
-## Ogni quante camere arriva un ospite in più al giorno: con 2 camere ne arriva 1, con 3 o 4 ne
-## arrivano 2. Con permanenze di 2-3 turni basta a riempire l'hotel, lasciando qualche rifiuto.
-const ROOMS_PER_DAILY_ARRIVAL: int = 2
+## Ogni quante camere arriva un ospite in più al giorno: fino a 3 camere ne arriva 1, da 4 a 6 ne
+## arrivano 2. Con permanenze di circa 2 turni, chi arriva trova quasi sempre posto (D-034).
+const ROOMS_PER_DAILY_ARRIVAL: int = 3
 ## Camere con cui inizia ogni partita: non si pagano e non fanno salire il prezzo.
 const STARTING_ROOMS: int = 2
 ## Prezzo della prima camera costruita, in monete. Vale circa un soggiorno comodo della giraffa.
@@ -95,8 +95,8 @@ func get_upcoming_guests() -> Array[Guest]:
 	return _queue.peek(VISIBLE_UPCOMING_GUESTS + 1).slice(1)
 
 
-## Restituisce quanti ospiti arrivano in una giornata con le camere attuali: la metà delle camere,
-## arrotondata per eccesso, e almeno uno. Una camera costruita durante la giornata vale dalla
+## Restituisce quanti ospiti arrivano in una giornata con le camere attuali: un terzo delle camere,
+## arrotondato per eccesso, e almeno uno. Una camera costruita durante la giornata vale dalla
 ## giornata dopo, perché questo numero si legge solo all'inizio.
 func get_daily_arrivals() -> int:
 	return maxi(ceili(float(_grid.get_rooms().size()) / ROOMS_PER_DAILY_ARRIVAL), 1)

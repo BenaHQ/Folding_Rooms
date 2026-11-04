@@ -18,6 +18,10 @@ const STAY_TURNS_KEY: String = "stay_turns"
 const COMFORTABLE_PAY_KEY: String = "comfortable_pay"
 const UNCOMFORTABLE_PAY_KEY: String = "uncomfortable_pay"
 
+## Permanenza minima di un ospite estratto, in turni. Chi restasse un solo turno sparirebbe appena
+## entrato: a fine giornata paga e parte, e il giocatore non capirebbe che cosa è successo.
+const MIN_ROLLED_STAY_TURNS: int = 2
+
 ## Nome stabile della specie: è ciò che finisce nel salvataggio. Non va cambiato, altrimenti i
 ## salvataggi esistenti non ritrovano più l'ospite.
 @export var id: String = ""
@@ -42,15 +46,15 @@ const UNCOMFORTABLE_PAY_KEY: String = "uncomfortable_pay"
 @export var body_color: Color = Color.WHITE
 
 
-## Crea un singolo ospite di questa specie, con valori estratti entro i margini. Resta almeno un turno
-## e non paga mai meno di zero. Se la specie non ha margini restituisce sé stessa, perché non c'è
+## Crea un singolo ospite di questa specie, con valori estratti entro i margini. Resta almeno
+## MIN_ROLLED_STAY_TURNS turni e non paga mai meno di zero. Se la specie non ha margini restituisce sé stessa, perché non c'è
 ## nulla da variare. random è il generatore da usare: quello della fila, che dipende dal seme.
 func roll_visit(random: RandomNumberGenerator) -> Guest:
 	if stay_turns_spread == 0 and comfortable_pay_spread == 0 and uncomfortable_pay_spread == 0:
 		return self
 
 	var visit: Guest = duplicate() as Guest
-	visit.stay_turns = maxi(stay_turns + random.randi_range(-stay_turns_spread, stay_turns_spread), 1)
+	visit.stay_turns = maxi(stay_turns + random.randi_range(-stay_turns_spread, stay_turns_spread), MIN_ROLLED_STAY_TURNS)
 	visit.comfortable_pay = maxi(comfortable_pay + random.randi_range(-comfortable_pay_spread, comfortable_pay_spread), 0)
 	visit.uncomfortable_pay = maxi(uncomfortable_pay + random.randi_range(-uncomfortable_pay_spread, uncomfortable_pay_spread), 0)
 	return visit

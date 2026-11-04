@@ -97,6 +97,7 @@
 - [x] Pulsante per ricominciare da zero, con conferma (D-031).
 - [x] Luce e buio: camere speciali comprate con le monete, pipistrello e ospite vegetale dalla quarta camera (D-032).
 - [x] Paga e permanenza variabili per ogni ospite, entro un margine per specie (D-033).
+- [x] Progressione più semplice: meno arrivi e permanenze più brevi (D-034).
 - [ ] Decisione: prossima funzione tra arredi funzionali, piani e scorrimento, oppure una prima prova con una persona.
 
 ## Fase 7 — Prova con i giocatori

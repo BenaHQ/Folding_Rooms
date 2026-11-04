@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://ui/hud/hud.gd" id="1_hud"]
 [ext_resource type="Script" path="res://ui/hud/build_button.gd" id="2_build_button"]
+[ext_resource type="Script" path="res://ui/hud/reset_button.gd" id="3_reset_button"]
 
 [node name="Hud" type="Control"]
 layout_mode = 3
@@ -18,3 +19,9 @@ layout_mode = 1
 anchor_left = 0.5
 anchor_right = 0.5
 script = ExtResource("2_build_button")
+
+[node name="ResetButton" type="Control" parent="."]
+layout_mode = 1
+anchor_left = 1.0
+anchor_right = 1.0
+script = ExtResource("3_reset_button")

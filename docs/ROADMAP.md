@@ -39,7 +39,7 @@
 - [x] Anteprima valido/non valido con contorno, icona e sagoma di prova, senza che il dito copra l'informazione.
 - [x] Rilascio: assestamento morbido se la modifica è valida, ritorno elastico se è rifiutata.
 - [x] Casi limite: secondo dito e tocco interrotto.
-- [x] Gesto dall'interno della camera: la metà toccata e l'asse del dito scelgono il lato (D-012).
+- [x] Gesto dall'interno della camera: la metà toccata e l'asse del dito scelgono il lato (D-012). Sostituito dallo spostamento dal centro (D-030).
 - [x] Riccardo giudica se il gesto è piacevole direttamente sul telefono, al Cancello 1, senza una prova separata su PC (D-016).
 
 ## Fase 3 — Prova su un telefono vero
@@ -92,6 +92,9 @@
 **Obiettivo:** avere abbastanza gioco da far valere una prova con altre persone (D-028). Dopo due o tre funzioni si valuta una prima prova con una sola persona.
 
 - [x] Nuove camere comprate con le monete, con il pulsante Costruisci e un prezzo crescente (D-028).
+- [x] Giornate con più arrivi, in base alle camere: prima le camere occupate non potevano superare 3 (D-029).
+- [x] Spostamento della camera intera trascinandola dal centro; le maniglie cambiano la forma (D-030).
+- [x] Pulsante per ricominciare da zero, con conferma (D-031).
 - [ ] Decisione: prossima funzione tra luce e buio, arredi funzionali, piani e scorrimento.
 
 ## Fase 7 — Prova con i giocatori

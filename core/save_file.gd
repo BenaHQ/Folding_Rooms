@@ -22,7 +22,8 @@ enum Status {
 }
 
 ## Versione attuale del formato. Va aumentata ogni volta che cambia la struttura dei dati salvati.
-const FORMAT_VERSION: int = 1
+## La versione 2 ha aggiunto gli arrivi rimasti nella giornata (D-029).
+const FORMAT_VERSION: int = 2
 ## Nome del campo con la versione del formato.
 const VERSION_KEY: String = "format_version"
 ## Nome del campo con i dati veri e propri.

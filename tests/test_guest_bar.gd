@@ -148,3 +148,76 @@ func test_interface_follows_building() -> void:
 	assert_eq(_hud._coins, 0)
 	assert_eq(_hud._build_button._price, HotelSession.FIRST_NEW_ROOM_PRICE + HotelSession.NEW_ROOM_PRICE_STEP)
 	assert_false(_hud._build_button._can_build)
+
+
+## L'interfaccia mostra quanti ospiti devono ancora arrivare, anche a metà giornata.
+func test_interface_shows_arrivals_left() -> void:
+	assert_eq(_hud._arrivals_left, _editor.session.arrivals_left)
+
+	_editor.session.arrivals_left = 3
+	_press_bar(_bar.get_refuse_rect().get_center())
+
+	assert_eq(_hud._arrivals_left, 2)
+	assert_eq(_hud._turns, 0)
+
+
+## Le icone degli arrivi devono stare nello schermo, con il loro numero.
+func test_arrivals_icon_fits_in_width() -> void:
+	var number_start: float = _hud.size.x - Hud.MARGIN_PIXELS - Hud.NUMBER_WIDTH_PIXELS + Hud.ARRIVALS_ICON_OFFSET_PIXELS + Hud.NUMBER_OFFSET_PIXELS
+	var room_for_digit: float = float(Hud.FONT_SIZE_PIXELS)
+
+	assert_lte(number_start + room_for_digit, _hud.size.x)
+
+
+## Simula un dito che tocca il pulsante per ricominciare.
+func _press_reset_button() -> void:
+	var touch: InputEventScreenTouch = InputEventScreenTouch.new()
+	touch.pressed = true
+	_hud._reset_button._gui_input(touch)
+
+
+## Il pulsante per ricominciare è comodo da toccare, non copre nulla e non sta sulle camere.
+func test_reset_button_size_and_position() -> void:
+	var rect: Rect2 = _hud._reset_button.get_global_rect()
+
+	assert_gte(rect.size.x, MIN_TOUCH_PIXELS)
+	assert_gte(rect.size.y, MIN_TOUCH_PIXELS)
+	assert_false(rect.intersects(_hud._build_button.get_global_rect()))
+	assert_false(rect.intersects(_hud.get_turn_icon_rect()))
+	assert_lte(rect.end.x, _hud.size.x)
+	assert_lte(rect.end.y, _editor.get_envelope_origin().y)
+
+
+## Un solo tocco non deve cancellare la partita: il pulsante chiede conferma.
+func test_single_press_does_not_reset() -> void:
+	_editor.session.coins = 50
+
+	_press_reset_button()
+
+	assert_true(_hud._reset_button.is_armed())
+	assert_eq(_editor.session.coins, 50)
+
+
+## Il secondo tocco ricomincia da zero, e l'interfaccia si aggiorna.
+func test_second_press_resets_game() -> void:
+	_editor.session.coins = 50
+	_press_reset_button()
+
+	_press_reset_button()
+
+	assert_false(_hud._reset_button.is_armed())
+	assert_eq(_editor.session.coins, 0)
+	assert_eq(_hud._coins, 0)
+	assert_eq(_hud._build_button._price, HotelSession.FIRST_NEW_ROOM_PRICE)
+
+
+## Se la conferma non arriva, il pulsante torna normale e il tocco dopo non cancella nulla.
+func test_reset_button_disarms_after_waiting() -> void:
+	_editor.session.coins = 50
+	_press_reset_button()
+
+	await wait_seconds(ResetButton.ARMED_SECONDS + 0.1)
+
+	assert_false(_hud._reset_button.is_armed())
+	_press_reset_button()
+	assert_eq(_editor.session.coins, 50)

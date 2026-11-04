@@ -3,7 +3,7 @@ extends GutTest
 ##
 ## COMPORTAMENTO PROTETTO: gli ospiti arrivano uno alla volta. Ospitare o rifiutare conclude il
 ## turno; a ogni turno chi è in camera paga secondo come sta in quel momento e, finita la
-## permanenza, parte (D-026). Stare comodi rende più che stare stipati (D-019). Le monete comprano
+## permanenza, parte (D-026). Un turno è una giornata con più arrivi, in base alle camere (D-029). Stare comodi rende più che stare stipati (D-019). Le monete comprano
 ## nuove camere a prezzo crescente, senza consumare il turno (D-028).
 ## CHI LO USA: GUT, lo strumento che esegue i test automatici. Il comando per avviarli è scritto
 ## in docs/STATO.md.
@@ -247,3 +247,104 @@ func test_built_room_works_like_any_other() -> void:
 	assert_eq(session.coins, 0)
 	assert_not_null(session.host_current_guest(room))
 	assert_eq(session.coins, GIRAFFE.uncomfortable_pay)
+
+
+## Crea una partita con camere da 1 cella e la specie indicata: il ghiro entra in tutte.
+func _make_session_with_small_rooms(room_count: int, guest: Guest) -> HotelSession:
+	var grid: Grid = Grid.new(Envelope.new())
+	for index: int in room_count:
+		assert_true(grid.add_room(Room.new(Rect2i(index, 0, 1, 1))))
+	return HotelSession.new(grid, GuestQueue.new([guest], TEST_SEED))
+
+
+## Conta le camere occupate di una partita.
+func _count_occupied(session: HotelSession) -> int:
+	var occupied: int = 0
+	for room: Room in session.get_grid().get_rooms():
+		if room.guest != null:
+			occupied += 1
+	return occupied
+
+
+## Il difetto che ha portato a D-029: con un ospite al giorno e permanenze di 3 turni, le camere
+## occupate non potevano superare 3, per quante se ne comprassero. Con più camere devono riempirsi.
+func test_more_rooms_can_be_occupied_than_a_guest_stay() -> void:
+	var session: HotelSession = _make_session_with_small_rooms(6, DORMOUSE)
+	assert_eq(DORMOUSE.stay_turns, 3)
+	var most_occupied: int = 0
+
+	for arrival: int in 12:
+		var free_rooms: Array[Room] = session.get_grid().get_rooms().filter(func(room: Room) -> bool: return room.guest == null)
+		if free_rooms.is_empty():
+			session.refuse_current_guest()
+		else:
+			session.host_current_guest(free_rooms[0])
+		most_occupied = maxi(most_occupied, _count_occupied(session))
+
+	assert_eq(most_occupied, 6)
+
+
+## Gli arrivi al giorno sono la metà delle camere, per eccesso.
+func test_daily_arrivals_grow_with_rooms() -> void:
+	var expected_arrivals: Dictionary[int, int] = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3}
+
+	for room_count: int in expected_arrivals:
+		assert_eq(_make_session_with_small_rooms(room_count, DORMOUSE).get_daily_arrivals(), expected_arrivals[room_count])
+
+
+## Con più arrivi la giornata continua: nessuno paga e il tempo non passa fino all'ultimo.
+func test_day_ends_only_after_last_arrival() -> void:
+	var session: HotelSession = _make_session_with_small_rooms(4, DORMOUSE)
+	var rooms: Array[Room] = session.get_grid().get_rooms()
+	assert_eq(session.arrivals_left, 2)
+
+	var first_report: TurnReport = session.host_current_guest(rooms[0])
+
+	assert_true(first_report.earnings.is_empty())
+	assert_eq(session.turns_played, 0)
+	assert_eq(session.arrivals_left, 1)
+	assert_eq(session.coins, 0)
+	assert_eq(rooms[0].turns_left, DORMOUSE.stay_turns)
+
+	var last_report: TurnReport = session.host_current_guest(rooms[1])
+
+	assert_eq(last_report.earnings.size(), 2)
+	assert_eq(session.turns_played, 1)
+	assert_eq(session.arrivals_left, 2)
+	assert_eq(rooms[0].turns_left, DORMOUSE.stay_turns - 1)
+	assert_eq(session.coins, 2 * DORMOUSE.comfortable_pay)
+
+
+## Anche rifiutare consuma un arrivo, e l'ultimo rifiuto conclude la giornata.
+func test_refusing_consumes_an_arrival() -> void:
+	var session: HotelSession = _make_session_with_small_rooms(4, DORMOUSE)
+
+	session.refuse_current_guest()
+
+	assert_eq(session.arrivals_left, 1)
+	assert_eq(session.turns_played, 0)
+
+	session.refuse_current_guest()
+
+	assert_eq(session.turns_played, 1)
+
+
+## Un ospite che non entra non consuma l'arrivo: resta di turno.
+func test_guest_who_does_not_fit_keeps_arrival() -> void:
+	var session: HotelSession = _make_session_with_small_rooms(4, GIRAFFE)
+
+	assert_null(session.host_current_guest(session.get_grid().get_rooms()[0]))
+
+	assert_eq(session.arrivals_left, 2)
+
+
+## Una camera costruita durante la giornata fa crescere gli arrivi solo da quella dopo.
+func test_room_built_during_day_counts_from_next_day() -> void:
+	var session: HotelSession = _make_session_with_coins(30)
+	assert_eq(session.arrivals_left, 1)
+
+	session.build_room(Vector2i(0, 0))
+
+	assert_eq(session.arrivals_left, 1)
+	session.refuse_current_guest()
+	assert_eq(session.arrivals_left, 2)

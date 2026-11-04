@@ -168,3 +168,25 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Motivo:** per Riccardo il prototipo è ancora troppo acerbo per farlo giudicare ad altri. Le monete non avevano uno scopo, e con più camere il ciclo di gioco e le funzioni successive diventano più interessanti. Resta il rischio di costruire molto su un nucleo che nessun altro ha provato: per questo la scaletta prevede una prima prova con una sola persona dopo due o tre funzioni.
 - **Deciso da:** Riccardo per il rinvio, il pulsante, i prezzi e il turno. Claude Code per la misura iniziale da 1 cella e per gli annullamenti. I prezzi sono da bilanciare provando.
 - **Sostituisce:** in D-007, l'ordine della scaletta: la fase 7 non è più il passo successivo alla fase 6.
+
+## D-029 — 2026-11-04 — Giornate con più arrivi
+
+- **Decisione:** un turno diventa una giornata. Arrivano più ospiti, uno alla volta, e ognuno va ospitato o rifiutato. Dopo l'ultimo la giornata finisce: chi è in camera paga, resta un turno in meno e chi ha finito parte. Gli arrivi al giorno sono la metà delle camere, per eccesso (2 camere 1 arrivo, 3 o 4 camere 2, 5 o 6 camere 3), e una camera costruita conta dal giorno dopo. In alto si vedono gli arrivi rimasti. Il formato del salvataggio passa alla versione 2, senza conversione: un salvataggio della versione 1 viene messo da parte e si riparte da una partita nuova, perché esistevano solo salvataggi di prova.
+- **Motivo:** provando, Riccardo non ha mai avuto più di 3 camere occupate. Con un arrivo a turno e permanenze di massimo 3 turni era un limite matematico, e le camere comprate in più restavano inutili. Permanenze e compensi non cambiano.
+- **Controllo:** simulazione con un giocatore automatico semplice, 20 partite da 40 giorni: dal giorno 20 circa 8 camere e 5 occupate, poi circa 10 camere e 6 occupate. Dal giorno 30 l'involucro è quasi pieno e le monete si accumulano, perché non c'è altro da comprare. Il giocatore automatico sceglie male le celle e non restringe le camere: i numeri indicano solo l'ordine di grandezza.
+- **Deciso da:** Riccardo per le giornate con più arrivi; Claude Code per la formula degli arrivi e per il formato del salvataggio. La formula è da bilanciare provando.
+- **Sostituisce:** in D-026, il turno che finisce a ogni ospite sistemato o rifiutato.
+
+## D-030 — 2026-11-04 — Spostare la camera intera dal centro
+
+- **Decisione:** a camera selezionata, trascinandola dal centro la si sposta intera, con il suo ospite; le maniglie cambiano la forma. Un tocco senza trascinare continua a far entrare l'ospite di turno. Lo spostamento è gratis e non consuma il turno. Conta solo dove la camera arriva: può passare sopra le altre mentre è sollevata dal dito, ma non può fermarsi su un'altra camera né uscire dall'involucro, e non spinge nessuno. Se il punto d'arrivo non è valido, al rilascio torna dov'era.
+- **Maniglie:** l'area sensibile misura 112 pixel lungo il lato e 96 di traverso, 68 fuori dalla camera e 28 dentro. La parte interna è stretta per lasciare un centro anche nelle camere da 1 cella, dove il centro misura circa 54 pixel per lato.
+- **Motivo:** Riccardo vuole riorganizzare l'hotel senza dover restringere e riallargare le camere.
+- **Deciso da:** Riccardo per il gesto. Claude Code per gratuità, passaggio sopra le altre camere e misure dell'area sensibile, da confermare provando.
+- **Sostituisce:** D-012: dall'interno della camera non si sceglie più un lato in base alla metà toccata. Rimpicciolire ora richiede le maniglie.
+
+## D-031 — 2026-11-04 — Pulsante per ricominciare da zero
+
+- **Decisione:** un pulsante in alto a destra, sotto la riga dei numeri, riporta la partita all'inizio. Il primo tocco lo arma: mostra una spunta e un bordo rosso per 3 secondi. Il secondo tocco conferma. La partita nuova sostituisce subito quella salvata, senza possibilità di tornare indietro.
+- **Motivo:** Riccardo vuole poter ripartire da zero durante le prove; prima bisognava disinstallare l'app. La conferma evita di perdere la partita con un tocco per sbaglio.
+- **Deciso da:** Riccardo per il pulsante; Claude Code per posizione e conferma. Posizione e aspetto sono da rivedere con l'interfaccia definitiva della fase 8.

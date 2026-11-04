@@ -1,8 +1,8 @@
 class_name Hud
 extends Control
-## Le informazioni in alto sullo schermo: monete guadagnate, turni giocati e pulsante Costruisci.
+## Le informazioni in alto sullo schermo: monete, turni giocati, arrivi rimasti e pulsante Costruisci.
 ##
-## COSA FA: mostra due numeri, ognuno con la sua icona, sotto la zona occupata dal sistema, e tiene
+## COSA FA: mostra tre numeri, ognuno con la sua icona, sotto la zona occupata dal sistema, e tiene
 ## il pulsante per costruire nella stessa riga.
 ## CHI LA USA: la scena principale main.tscn, che le passa i valori.
 ## PERCHÉ È SEPARATA: è interfaccia, senza regole. Lascia passare i tocchi, così non disturba le
@@ -15,6 +15,8 @@ extends Control
 
 ## Lanciato quando il giocatore tocca il pulsante Costruisci.
 signal build_pressed
+## Lanciato quando il giocatore conferma di voler ricominciare da zero.
+signal reset_confirmed
 
 ## Distanza dai bordi dell'area sicura, in pixel.
 const MARGIN_PIXELS: float = 28.0
@@ -28,14 +30,23 @@ const FONT_SIZE_PIXELS: int = 40
 const TEXT_BASELINE_OFFSET_PIXELS: float = 14.0
 ## Larghezza riservata a un numero, in pixel.
 const NUMBER_WIDTH_PIXELS: float = 180.0
+## Spazio tra la riga dei numeri e il pulsante per ricominciare, in pixel.
+const RESET_BUTTON_GAP_PIXELS: float = 4.0
+## Distanza tra il centro dell'icona dei turni e quello dell'icona degli arrivi, in pixel: lascia
+## spazio a un numero di turni di due cifre.
+const ARRIVALS_ICON_OFFSET_PIXELS: float = 112.0
 
 ## Le monete da mostrare.
 var _coins: int = 0
 ## I turni da mostrare.
 var _turns: int = 0
+## Gli ospiti ancora in arrivo nella giornata, da mostrare.
+var _arrivals_left: int = 0
 
 ## Il pulsante per costruire una camera.
 @onready var _build_button: BuildButton = $BuildButton
+## Il pulsante per ricominciare la partita.
+@onready var _reset_button: ResetButton = $ResetButton
 
 
 ## Godot chiama _ready() quando il nodo e i suoi figli sono pronti. Il pulsante sta al centro dello
@@ -49,11 +60,21 @@ func _ready() -> void:
 	_build_button.offset_top = row_y - BuildButton.HEIGHT_PIXELS / 2.0
 	_build_button.offset_bottom = row_y + BuildButton.HEIGHT_PIXELS / 2.0
 
+	# Il pulsante per ricominciare sta nell'angolo a destra, sotto la riga dei numeri e lontano dal
+	# pulsante Costruisci, perché toccarlo per sbaglio costerebbe la partita. Sopra l'involucro anche
+	# sullo schermo più basso previsto, alto 1280 pixel, dove lo spazio finisce a 200 pixel.
+	_reset_button.confirmed.connect(reset_confirmed.emit)
+	_reset_button.offset_left = -MARGIN_PIXELS - ResetButton.SIDE_PIXELS
+	_reset_button.offset_right = -MARGIN_PIXELS
+	_reset_button.offset_top = row_y + BuildButton.HEIGHT_PIXELS / 2.0 + RESET_BUTTON_GAP_PIXELS
+	_reset_button.offset_bottom = _reset_button.offset_top + ResetButton.SIDE_PIXELS
+
 
 ## Aggiorna i numeri mostrati.
-func update_values(coins: int, turns: int) -> void:
+func update_values(coins: int, turns: int, arrivals_left: int) -> void:
 	_coins = coins
 	_turns = turns
+	_arrivals_left = arrivals_left
 	queue_redraw()
 
 
@@ -75,6 +96,10 @@ func _draw() -> void:
 	var turn_center: Vector2 = Vector2(size.x - MARGIN_PIXELS - NUMBER_WIDTH_PIXELS, row_y)
 	GuestPainter.draw_stay_icon(self, turn_center, ICON_RADIUS_PIXELS)
 	_draw_number(font, turn_center, _turns)
+
+	var arrivals_center: Vector2 = turn_center + Vector2(ARRIVALS_ICON_OFFSET_PIXELS, 0.0)
+	GuestPainter.draw_arrivals_icon(self, arrivals_center, ICON_RADIUS_PIXELS)
+	_draw_number(font, arrivals_center, _arrivals_left)
 
 
 ## Disegna un numero accanto all'icona che ha il centro indicato.

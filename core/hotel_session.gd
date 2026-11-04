@@ -2,9 +2,10 @@ class_name HotelSession
 extends RefCounted
 ## Una partita: la fila degli ospiti, i turni, le monete e la costruzione di nuove camere.
 ##
-## COSA FA: applica il ciclo di gioco deciso con D-026. Ospitare o rifiutare l'ospite di turno
-## conclude il turno: chi è in camera paga secondo come sta in quel momento, poi resta un turno in
-## meno, e chi ha finito parte. Spostare le pareti è gratis e non consuma turni.
+## COSA FA: applica il ciclo di gioco deciso con D-026 e D-029. Un turno è una giornata: arrivano più
+## ospiti, uno alla volta, e ognuno va ospitato o rifiutato. Quando sono finiti, la giornata si
+## conclude: chi è in camera paga secondo come sta in quel momento, poi resta un turno in meno, e chi
+## ha finito parte. Spostare le pareti è gratis e non consuma turni.
 ## CHI LA USA: la scena RoomEditor, che le passa le azioni del giocatore.
 ## PERCHÉ È SEPARATA: non usa nodi né disegno, quindi i test automatici possono provare un'intera
 ## partita. Non decide chi entra dove: lo chiede a Grid.
@@ -14,6 +15,9 @@ extends RefCounted
 
 ## Quanti ospiti in fila si vedono oltre a quello di turno.
 const VISIBLE_UPCOMING_GUESTS: int = 2
+## Ogni quante camere arriva un ospite in più al giorno: con 2 camere ne arriva 1, con 3 o 4 ne
+## arrivano 2. Con permanenze di 2-3 turni basta a riempire l'hotel, lasciando qualche rifiuto.
+const ROOMS_PER_DAILY_ARRIVAL: int = 2
 ## Camere con cui inizia ogni partita: non si pagano e non fanno salire il prezzo.
 const STARTING_ROOMS: int = 2
 ## Prezzo della prima camera costruita, in monete. Vale circa un soggiorno comodo della giraffa.
@@ -25,6 +29,7 @@ const NEW_ROOM_SIZE_CELLS: Vector2i = Vector2i.ONE
 ## Nomi dei campi nel salvataggio.
 const COINS_KEY: String = "coins"
 const TURNS_PLAYED_KEY: String = "turns_played"
+const ARRIVALS_LEFT_KEY: String = "arrivals_left"
 const ROOMS_KEY: String = "rooms"
 const QUEUE_KEY: String = "queue"
 const ROOM_X_KEY: String = "x"
@@ -43,6 +48,8 @@ const MAX_SAVED_COUNT: float = 9007199254740992.0
 var coins: int = 0
 ## I turni conclusi finora.
 var turns_played: int = 0
+## Quanti ospiti devono ancora arrivare in questa giornata, compreso quello di turno.
+var arrivals_left: int = 0
 
 ## La griglia con camere e regole.
 var _grid: Grid
@@ -54,6 +61,7 @@ var _queue: GuestQueue
 func _init(grid: Grid, queue: GuestQueue) -> void:
 	_grid = grid
 	_queue = queue
+	arrivals_left = get_daily_arrivals()
 
 
 ## Restituisce l'ospite di turno.
@@ -66,18 +74,25 @@ func get_upcoming_guests() -> Array[Guest]:
 	return _queue.peek(VISIBLE_UPCOMING_GUESTS + 1).slice(1)
 
 
-## Prova a far entrare l'ospite di turno in una camera. Se riesce conclude il turno e ne restituisce
-## il resoconto; se non può entrare restituisce null, e il turno continua.
+## Restituisce quanti ospiti arrivano in una giornata con le camere attuali: la metà delle camere,
+## arrotondata per eccesso, e almeno uno. Una camera costruita durante la giornata vale dalla
+## giornata dopo, perché questo numero si legge solo all'inizio.
+func get_daily_arrivals() -> int:
+	return maxi(ceili(float(_grid.get_rooms().size()) / ROOMS_PER_DAILY_ARRIVAL), 1)
+
+
+## Prova a far entrare l'ospite di turno in una camera. Se non può entrare restituisce null e non
+## cambia nulla. Se entra restituisce il resoconto: è vuoto se la giornata continua.
 func host_current_guest(room: Room) -> TurnReport:
 	if not _grid.assign_guest(get_current_guest(), room):
 		return null
 
-	return _end_turn()
+	return _finish_arrival()
 
 
-## Rifiuta l'ospite di turno: se ne va senza pagare e il turno si conclude (D-026).
+## Rifiuta l'ospite di turno: se ne va senza pagare (D-026). Restituisce il resoconto come sopra.
 func refuse_current_guest() -> TurnReport:
-	return _end_turn()
+	return _finish_arrival()
 
 
 ## Restituisce il prezzo della prossima camera, in monete: FIRST_NEW_ROOM_PRICE per la prima, poi
@@ -125,6 +140,7 @@ func to_data() -> Dictionary:
 	return {
 		COINS_KEY: coins,
 		TURNS_PLAYED_KEY: turns_played,
+		ARRIVALS_LEFT_KEY: arrivals_left,
 		ROOMS_KEY: room_entries,
 		QUEUE_KEY: _queue.to_data(),
 	}
@@ -148,12 +164,15 @@ static func from_data(data: Dictionary, species: Array[Guest]) -> HotelSession:
 	var queue: GuestQueue = GuestQueue.from_data(queue_data, species)
 	var saved_coins: int = _read_count(data, COINS_KEY)
 	var saved_turns: int = _read_count(data, TURNS_PLAYED_KEY)
-	if queue == null or saved_coins == INVALID_COUNT or saved_turns == INVALID_COUNT:
+	var saved_arrivals: int = _read_count(data, ARRIVALS_LEFT_KEY)
+	# Una giornata senza arrivi rimasti sarebbe già conclusa: un salvataggio valido non la contiene.
+	if queue == null or saved_coins == INVALID_COUNT or saved_turns == INVALID_COUNT or saved_arrivals < 1:
 		return null
 
 	var session: HotelSession = HotelSession.new(grid, queue)
 	session.coins = saved_coins
 	session.turns_played = saved_turns
+	session.arrivals_left = saved_arrivals
 	return session
 
 
@@ -212,7 +231,20 @@ static func _read_count(data: Dictionary, key: String) -> int:
 	return int(value)
 
 
-## Conclude il turno: incassa, fa passare il tempo, fa partire chi ha finito e fa avanzare la fila.
+## Fa avanzare la fila dopo che l'ospite di turno è stato sistemato o rifiutato. Se era l'ultimo della
+## giornata la conclude; altrimenti restituisce un resoconto vuoto.
+func _finish_arrival() -> TurnReport:
+	_queue.advance()
+	arrivals_left -= 1
+
+	if arrivals_left > 0:
+		return TurnReport.new()
+
+	return _end_turn()
+
+
+## Conclude la giornata: incassa, fa passare il tempo, fa partire chi ha finito e prepara gli arrivi
+## del giorno dopo, contando le camere di adesso.
 func _end_turn() -> TurnReport:
 	var report: TurnReport = TurnReport.new()
 
@@ -232,5 +264,5 @@ func _end_turn() -> TurnReport:
 			report.departed_rooms.append(room)
 
 	turns_played += 1
-	_queue.advance()
+	arrivals_left = get_daily_arrivals()
 	return report

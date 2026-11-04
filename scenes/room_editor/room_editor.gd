@@ -1,15 +1,16 @@
 class_name RoomEditor
 extends Control
-## Scena del gesto: si tocca una camera e se ne trascinano i lati.
+## Scena del gesto: si tocca una camera, se ne trascinano i lati dalle maniglie e la si sposta intera
+## dal centro (D-030).
 ##
 ## COSA FA: disegna involucro, griglia e camere, riceve i tocchi e mostra in tempo reale il
 ## risultato previsto, anche sulla camera vicina coinvolta. Al rilascio conferma la modifica
 ## e anima l'assestamento. Mostra gli ospiti: toccando la camera selezionata vi entra l'ospite di
-## turno, e il turno si conclude (D-026). In modalità costruzione segna le celle libere: toccandone
+## turno (D-026, D-029). In modalità costruzione segna le celle libere: toccandone
 ## una si compra una nuova camera (D-028).
 ## CHI LA USA: la scena principale main.tscn, che la contiene come nodo figlio.
 ## PERCHÉ È SEPARATA: tiene insieme disegno e tocco. Le regole stanno in Grid e il
-## calcolo del gesto in RoomDrag, così si possono provare senza grafica. Questa scena
+## calcolo del gesto in RoomDrag e RoomMove, così si possono provare senza grafica. Questa scena
 ## non decide mai se una modifica è permessa: lo chiede sempre a loro.
 ## NOTA GDSCRIPT: «extends Control» indica un nodo adatto all'interfaccia, che riceve i
 ## tocchi nella funzione _gui_input(). Un nodo è un mattone della scena; la scena è un
@@ -43,16 +44,18 @@ const NEW_ROOM_START_FRACTION: float = 0.5
 ## Scarto entro cui due lati disegnati contano come lo stesso muro, in pixel.
 const SAME_WALL_TOLERANCE_PIXELS: float = 0.5
 
-## Quanti pixel deve percorrere il dito prima che il gesto dall'interno della camera venga
-## riconosciuto: sotto questa distanza la direzione non è ancora affidabile.
+## Quanti pixel deve percorrere il dito dentro la camera prima che valga come trascinamento e non
+## come semplice tocco, che fa entrare l'ospite: un dito che trema non deve spostare nulla.
 const GESTURE_RECOGNITION_PIXELS: float = 20.0
 
-## Metà del lato dell'area sensibile di una maniglia, in pixel. L'area totale è 112
-## pixel, più dei 96 che valgono 48 dp su un telefono largo circa 360 dp. È più grande
-## del disegno, come chiede AGENTS.md, sezione 7. Le maniglie si afferrano solo dalla parte
-## fuori dalla camera, perché dentro vale il gesto riconosciuto. Le aree di due maniglie
-## vicine possono sovrapporsi: vince quella col centro più vicino al dito.
-const HANDLE_TOUCH_HALF_SIZE_PIXELS: float = 56.0
+## Area sensibile di una maniglia, più grande del disegno come chiede AGENTS.md, sezione 7. Misura
+## 112 pixel lungo il lato e 96 di traverso: 68 fuori dalla camera e 28 dentro. I 96 pixel valgono
+## 48 dp su un telefono largo circa 360 dp. La parte dentro è stretta per lasciare un centro da cui
+## spostare la camera anche quando misura 1 cella (D-030). Le aree di due maniglie vicine possono
+## sovrapporsi: vince quella col centro più vicino al dito.
+const HANDLE_TOUCH_HALF_LENGTH_PIXELS: float = 56.0
+const HANDLE_TOUCH_OUTSIDE_PIXELS: float = 68.0
+const HANDLE_TOUCH_INSIDE_PIXELS: float = 28.0
 ## Lunghezza del disegno della maniglia, in pixel.
 const HANDLE_LENGTH_PIXELS: float = 72.0
 ## Spessore del disegno della maniglia, in pixel.
@@ -147,10 +150,12 @@ var session: HotelSession
 var _grid: Grid
 ## true se la camera è selezionata e mostra le maniglie.
 var _is_room_selected: bool = false
-## Il trascinamento in corso, oppure null se non ce n'è nessuno.
-var _drag: RoomDrag = null
-## true se un dito ha toccato l'interno della camera e la direzione non è ancora chiara.
+## Il gesto in corso, sia un lato sia l'intera camera, oppure null se non ce n'è nessuno.
+var _drag: RoomGesture = null
+## true se un dito ha toccato l'interno della camera e non si sa ancora se è un tocco o un trascinamento.
 var _is_recognizing_gesture: bool = false
+## La maniglia su cui si è appoggiato quel dito dentro la camera, oppure NONE se è nel centro.
+var _pressed_handle: int = NONE
 ## Indice del dito che trascina o di cui si riconosce il gesto, oppure NONE. Ogni dito ha
 ## un indice diverso.
 var _drag_finger_index: int = NONE
@@ -188,17 +193,10 @@ var _is_building: bool = false
 ## Godot chiama _ready() una sola volta, quando il nodo entra nella scena: qui si crea
 ## lo stato iniziale.
 func _ready() -> void:
-	_grid = Grid.new(Envelope.new())
-
 	# Le immagini di RoomPainter sono piccole e devono ripetersi invece di fermarsi al bordo.
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 
-	_add_initial_room(INITIAL_ROOM_CELLS)
-	_add_initial_room(SECOND_ROOM_CELLS)
-	room = rooms[0]
-
-	# randi() dà un numero casuale: ogni partita ha un ordine di arrivo diverso.
-	start_session(GuestQueue.new(GuestQueue.PROTOTYPE_GUESTS, randi()))
+	start_new_game()
 
 
 ## Godot chiama _gui_input() per ogni evento di tocco che arriva a questo nodo.
@@ -243,7 +241,7 @@ func _draw() -> void:
 	_draw_earnings(origin)
 
 
-## Restituisce true se un dito sta trascinando un lato.
+## Restituisce true se un dito sta trascinando un lato o l'intera camera.
 func is_dragging() -> bool:
 	return _drag != null
 
@@ -270,6 +268,31 @@ func toggle_build_mode() -> void:
 		# Le maniglie coprirebbero le celle libere vicine alla camera.
 		_set_room_selected(false)
 		_set_build_mode(true)
+
+
+## Ricomincia da zero: solo le camere iniziali, nessuna moneta e una fila nuova. Interrompe il gesto
+## in corso e dimentica ciò che resta sullo schermo della partita precedente. Non tocca il
+## salvataggio: è compito di chi chiama.
+func start_new_game() -> void:
+	_clear_drag()
+	_stop_settle_animation()
+	_set_build_mode(false)
+	_set_room_selected(false)
+	_bend = Vector2.ZERO
+	_shown_earnings = {}
+	_reacting_room = null
+
+	_grid = Grid.new(Envelope.new())
+	rooms.clear()
+	_painters.clear()
+	_visual_rects.clear()
+	_add_initial_room(INITIAL_ROOM_CELLS)
+	_add_initial_room(SECOND_ROOM_CELLS)
+	room = rooms[0]
+
+	# randi() dà un numero casuale: ogni partita ha un ordine di arrivo diverso.
+	start_session(GuestQueue.new(GuestQueue.PROTOTYPE_GUESTS, randi()))
+	queue_redraw()
 
 
 ## Inizia una partita con la fila indicata. Le camere restano come sono.
@@ -314,7 +337,7 @@ func handle_back() -> bool:
 	return false
 
 
-## Rifiuta l'ospite di turno e conclude il turno. Durante un trascinamento non fa nulla: un secondo
+## Rifiuta l'ospite di turno. Durante un trascinamento non fa nulla: un secondo
 ## dito sul pulsante non deve cambiare la partita mentre il primo sposta una parete.
 func refuse_current_guest() -> void:
 	if _drag != null:
@@ -407,9 +430,11 @@ func _handle_press(touch: InputEventScreenTouch) -> void:
 			_select_room(touched_room)
 		return
 
-	# Dentro la camera non si conosce ancora il lato: lo dirà il primo movimento del dito.
+	# Dentro la camera non si sa ancora se è un tocco o un trascinamento: lo dirà il dito. Il punto
+	# toccato dice già che cosa trascinerebbe: la parte interna di una maniglia oppure il centro.
 	if touched_room == room:
 		_is_recognizing_gesture = true
+		_pressed_handle = _find_handle_at(touch.position)
 		_drag_finger_index = touch.index
 		_drag_start_position = touch.position
 		return
@@ -467,7 +492,7 @@ func _try_host_current_guest() -> void:
 		_apply_turn_report(report, room)
 
 
-## Mostra il risultato di un turno concluso. hosting_room è la camera in cui un ospite è appena
+## Mostra il risultato dell'arrivo di un ospite e, se la giornata è finita, i guadagni. hosting_room è la camera in cui un ospite è appena
 ## entrato, oppure null se l'ospite è stato rifiutato.
 func _apply_turn_report(report: TurnReport, hosting_room: Room) -> void:
 	session_changed.emit()
@@ -476,8 +501,11 @@ func _apply_turn_report(report: TurnReport, hosting_room: Room) -> void:
 	if hosting_room != null and hosting_room.guest != null:
 		_play_reaction(hosting_room)
 
-	_shown_earnings = report.earnings
-	create_tween().tween_method(_set_earning_progress, 0.0, 1.0, EARNING_SECONDS)
+	# Si paga solo a fine giornata. A giornata in corso il resoconto è vuoto: l'animazione dei guadagni
+	# precedenti non va interrotta.
+	if not report.earnings.is_empty():
+		_shown_earnings = report.earnings
+		create_tween().tween_method(_set_earning_progress, 0.0, 1.0, EARNING_SECONDS)
 	queue_redraw()
 
 
@@ -578,18 +606,23 @@ func _set_room_selected(selected: bool) -> void:
 ## Inizia il trascinamento di un lato. finger_index è il dito che lo esegue e start_position
 ## il punto, in pixel del nodo, da cui si misura lo spostamento.
 func _begin_drag(side: Room.MovableSide, finger_index: int, start_position: Vector2) -> void:
-	# Se la camera si sta ancora assestando, si riparte dalla sua forma vera, con i lati dritti.
+	_bent_side = side
+	_start_gesture(RoomDrag.new(_grid, room, side, CELL_SIZE_PIXELS), finger_index, start_position)
+
+
+## Inizia un gesto. Se la camera si sta ancora assestando, si riparte dalla sua forma vera, con i
+## lati dritti. finger_index è il dito che lo esegue e start_position il punto di partenza, in pixel.
+func _start_gesture(gesture: RoomGesture, finger_index: int, start_position: Vector2) -> void:
 	_stop_settle_animation()
 	for each_room: Room in rooms:
 		_visual_rects[each_room] = _cells_to_pixels(each_room.cells)
 	_bend = Vector2.ZERO
 
-	_drag = RoomDrag.new(_grid, room, side, CELL_SIZE_PIXELS)
+	_drag = gesture
 	_is_recognizing_gesture = false
 	_drag_finger_index = finger_index
 	_drag_start_position = start_position
 	_finger_position = start_position
-	_bent_side = side
 	queue_redraw()
 
 
@@ -604,10 +637,11 @@ func _handle_finger_move(finger_move: InputEventScreenDrag) -> void:
 			return
 
 		# Lo spostamento si misura dal primo tocco, quindi i pixel percorsi durante il
-		# riconoscimento non vanno persi e il lato non resta indietro rispetto al dito.
-		var room_center: Vector2 = get_envelope_origin() + _cells_to_pixels(room.cells).get_center()
-		var side: Room.MovableSide = RoomDrag.choose_side(_drag_start_position, movement, room_center)
-		_begin_drag(side, finger_move.index, _drag_start_position)
+		# riconoscimento non vanno persi e il disegno non resta indietro rispetto al dito.
+		if _pressed_handle != NONE:
+			_begin_drag(_pressed_handle, finger_move.index, _drag_start_position)
+		else:
+			_start_gesture(RoomMove.new(_grid, room, CELL_SIZE_PIXELS), finger_move.index, _drag_start_position)
 
 	_finger_position = finger_move.position
 	_drag.update(_finger_position - _drag_start_position)
@@ -615,7 +649,10 @@ func _handle_finger_move(finger_move: InputEventScreenDrag) -> void:
 	for other_room: Room in rooms:
 		if other_room != room:
 			_visual_rects[other_room] = _drag.get_neighbor_visual_rect(other_room)
-	_bend = _compute_bend(_drag.offset_pixels, _drag.side)
+	# Solo il lato trascinato si incurva: una camera spostata intera resta dritta.
+	if _drag is RoomDrag:
+		var side_drag: RoomDrag = _drag as RoomDrag
+		_bend = _compute_bend(side_drag.offset_pixels, side_drag.side)
 	queue_redraw()
 
 
@@ -648,6 +685,7 @@ func _cancel_drag() -> void:
 func _clear_drag() -> void:
 	_drag = null
 	_is_recognizing_gesture = false
+	_pressed_handle = NONE
 	_drag_finger_index = NONE
 
 
@@ -699,14 +737,33 @@ func _find_handle_at(point: Vector2) -> int:
 	var best_distance: float = INF
 
 	for side: Room.MovableSide in Room.MovableSide.values():
-		var offset: Vector2 = (point - get_handle_position(side)).abs()
-		var is_inside: bool = offset.x <= HANDLE_TOUCH_HALF_SIZE_PIXELS and offset.y <= HANDLE_TOUCH_HALF_SIZE_PIXELS
+		var offset: Vector2 = point - get_handle_position(side)
+		var outward: Vector2 = _get_outward_direction(side)
+		# dot() misura quanto un vettore va nella direzione di un altro: qui, quanto il punto è fuori
+		# dalla camera, con un valore negativo se è dentro. Il resto è la distanza lungo il lato.
+		var distance_outward: float = offset.dot(outward)
+		var distance_along: float = absf(offset.dot(outward.orthogonal()))
+		var is_inside: bool = distance_along <= HANDLE_TOUCH_HALF_LENGTH_PIXELS and distance_outward <= HANDLE_TOUCH_OUTSIDE_PIXELS and distance_outward >= -HANDLE_TOUCH_INSIDE_PIXELS
 
 		if is_inside and offset.length() < best_distance:
 			best_side = side
 			best_distance = offset.length()
 
 	return best_side
+
+
+## Restituisce la direzione in cui un lato guarda fuori dalla camera. In Godot la Y cresce verso il
+## basso, quindi il soffitto guarda verso Y negative.
+func _get_outward_direction(side: Room.MovableSide) -> Vector2:
+	match side:
+		Room.MovableSide.LEFT_WALL:
+			return Vector2.LEFT
+		Room.MovableSide.RIGHT_WALL:
+			return Vector2.RIGHT
+		Room.MovableSide.CEILING:
+			return Vector2.UP
+		_:
+			return Vector2.DOWN
 
 
 ## Calcola la curvatura del lato trascinato. Con sin(π × frazione di cella) il lato è
@@ -897,10 +954,12 @@ func _draw_guest_icons(origin: Vector2) -> void:
 
 
 ## Disegna le maniglie: tutte se la camera è solo selezionata, solo quella in uso durante
-## il trascinamento, perché in quel momento contano contorno, maniglia e risultato.
+## il trascinamento, perché in quel momento contano contorno, maniglia e risultato. Mentre la camera
+## si sposta intera non ne serve nessuna.
 func _draw_handles() -> void:
 	if _drag != null:
-		_draw_handle(_drag.side, ACTIVE_HANDLE_SCALE)
+		if _drag is RoomDrag:
+			_draw_handle((_drag as RoomDrag).side, ACTIVE_HANDLE_SCALE)
 		return
 
 	if _handles_scale <= 0.0:

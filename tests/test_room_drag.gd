@@ -1,9 +1,10 @@
 extends GutTest
-## Test del trascinamento di un lato, senza scene né grafica.
+## Test del trascinamento di un lato e dello spostamento di una camera, senza scene né grafica.
 ##
 ## COMPORTAMENTO PROTETTO: il lato segue il dito finché c'è spazio e poi fa resistenza;
 ## la regola scatta a metà cella; la camera cambia solo alla conferma e solo se la
-## modifica è permessa.
+## modifica è permessa. Una camera spostata intera segue il dito sui due assi e cambia posto solo
+## alla conferma (D-030).
 ## CHI LO USA: GUT, lo strumento che esegue i test automatici. Il comando per avviarli
 ## è scritto in docs/STATO.md.
 ## PERCHÉ È SEPARATO: controlla il calcolo del gesto, mentre le regole della griglia
@@ -35,46 +36,6 @@ func before_each() -> void:
 ## Crea il trascinamento di un lato della camera di prova.
 func _make_drag(side: Room.MovableSide) -> RoomDrag:
 	return RoomDrag.new(_grid, _room, side, CELL_PIXELS)
-
-
-## Il gesto dall'interno sceglie il lato dalla metà toccata, non dal verso del dito: è ciò
-## che permette di rimpicciolire la camera anche senza maniglie (decisione D-012).
-func test_choose_side_uses_touched_half_and_axis() -> void:
-	var center: Vector2 = Vector2(300.0, 400.0)
-	var upper_left: Vector2 = Vector2(280.0, 380.0)
-	var lower_right: Vector2 = Vector2(320.0, 420.0)
-	var move_up: Vector2 = Vector2(0.0, -30.0)
-	var move_down: Vector2 = Vector2(0.0, 30.0)
-	var move_left: Vector2 = Vector2(-30.0, 0.0)
-	var move_right: Vector2 = Vector2(30.0, 0.0)
-
-	# Nella metà alta si muove il soffitto, in entrambi i versi; lo stesso per le altre metà.
-	assert_eq(RoomDrag.choose_side(upper_left, move_up, center), Room.MovableSide.CEILING)
-	assert_eq(RoomDrag.choose_side(upper_left, move_down, center), Room.MovableSide.CEILING)
-	assert_eq(RoomDrag.choose_side(lower_right, move_up, center), Room.MovableSide.FLOOR)
-	assert_eq(RoomDrag.choose_side(lower_right, move_down, center), Room.MovableSide.FLOOR)
-	assert_eq(RoomDrag.choose_side(upper_left, move_left, center), Room.MovableSide.LEFT_WALL)
-	assert_eq(RoomDrag.choose_side(upper_left, move_right, center), Room.MovableSide.LEFT_WALL)
-	assert_eq(RoomDrag.choose_side(lower_right, move_left, center), Room.MovableSide.RIGHT_WALL)
-	assert_eq(RoomDrag.choose_side(lower_right, move_right, center), Room.MovableSide.RIGHT_WALL)
-
-
-## In un movimento obliquo conta l'asse prevalente; a parità vince quello verticale.
-func test_choose_side_uses_dominant_axis() -> void:
-	var center: Vector2 = Vector2(300.0, 400.0)
-	var upper_left: Vector2 = Vector2(280.0, 380.0)
-
-	assert_eq(RoomDrag.choose_side(upper_left, Vector2(30.0, 10.0), center), Room.MovableSide.LEFT_WALL)
-	assert_eq(RoomDrag.choose_side(upper_left, Vector2(10.0, 30.0), center), Room.MovableSide.CEILING)
-	assert_eq(RoomDrag.choose_side(upper_left, Vector2(20.0, 20.0), center), Room.MovableSide.CEILING)
-
-
-## Il centro esatto deve dare sempre lo stesso risultato: metà bassa e metà destra.
-func test_choose_side_at_exact_center() -> void:
-	var center: Vector2 = Vector2(300.0, 400.0)
-
-	assert_eq(RoomDrag.choose_side(center, Vector2(0.0, -30.0), center), Room.MovableSide.FLOOR)
-	assert_eq(RoomDrag.choose_side(center, Vector2(-30.0, 0.0), center), Room.MovableSide.RIGHT_WALL)
 
 
 ## La regola scatta solo oltre la metà della cella.
@@ -258,4 +219,61 @@ func test_commit_without_movement_keeps_room() -> void:
 	var drag: RoomDrag = _make_drag(Room.MovableSide.LEFT_WALL)
 
 	assert_true(drag.commit().is_valid())
+	assert_eq(_room.cells, ROOM_CELLS)
+
+
+## Crea lo spostamento della camera di prova.
+func _make_move() -> RoomMove:
+	return RoomMove.new(_grid, _room, CELL_PIXELS)
+
+
+## Lo spostamento scatta a metà cella, separatamente sui due assi.
+func test_move_snaps_at_half_cell_on_each_axis() -> void:
+	var move: RoomMove = _make_move()
+
+	move.update(Vector2(160.0, -40.0))
+
+	assert_eq(move.preview.resulting_cells, Rect2i(ROOM_CELLS.position + Vector2i(2, 0), ROOM_CELLS.size))
+
+
+## Il disegno segue esattamente il dito, senza scatti, e la forma non cambia.
+func test_move_visual_follows_finger() -> void:
+	var move: RoomMove = _make_move()
+
+	move.update(Vector2(35.0, 62.0))
+
+	var expected_position: Vector2 = Vector2(ROOM_CELLS.position) * CELL_PIXELS + Vector2(35.0, 62.0)
+	assert_almost_eq(move.get_visual_rect().position, expected_position, Vector2.ONE * TOLERANCE_PIXELS)
+	assert_eq(move.get_visual_rect().size, Vector2(ROOM_CELLS.size) * CELL_PIXELS)
+
+
+## Oltre il bordo dell'involucro il disegno fa resistenza, anche se il dito va molto lontano.
+func test_move_visual_resists_at_envelope_edge() -> void:
+	var move: RoomMove = _make_move()
+
+	move.update(Vector2(-5000.0, 0.0))
+
+	assert_lt(move.get_visual_rect().position.x, 0.0)
+	assert_gt(move.get_visual_rect().position.x, -RoomGesture.MAX_RESISTANCE_PIXELS)
+	assert_eq(move.preview.rejection, ResizePreview.Rejection.OUTSIDE_ENVELOPE)
+
+
+## La camera cambia posto solo alla conferma.
+func test_move_changes_room_only_on_commit() -> void:
+	var move: RoomMove = _make_move()
+	move.update(Vector2(100.0, 100.0))
+	assert_eq(_room.cells, ROOM_CELLS)
+
+	assert_true(move.commit().is_valid())
+
+	assert_eq(_room.cells, Rect2i(ROOM_CELLS.position + Vector2i.ONE, ROOM_CELLS.size))
+
+
+## Una conferma rifiutata lascia la camera dov'era.
+func test_rejected_move_keeps_room() -> void:
+	var move: RoomMove = _make_move()
+	move.update(Vector2(-5000.0, 0.0))
+
+	assert_false(move.commit().is_valid())
+
 	assert_eq(_room.cells, ROOM_CELLS)

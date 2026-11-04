@@ -3,7 +3,7 @@ extends GutTest
 ##
 ## COMPORTAMENTO PROTETTO: toccare una camera mostra le sue maniglie; trascinare una maniglia e
 ## rilasciare applica la modifica, anche alla camera vicina; un secondo dito viene ignorato; un
-## tocco interrotto non cambia le camere. In modalità costruzione un tocco su una cella libera compra una camera (D-028). La sensazione del gesto non è giudicabile da un test: va provata a mano.
+## tocco interrotto non cambia le camere. Dal centro la camera si sposta intera (D-030). Ricominciare riporta tutto all'inizio (D-031). In modalità costruzione un tocco su una cella libera compra una camera (D-028). La sensazione del gesto non è giudicabile da un test: va provata a mano.
 ## CHI LO USA: GUT, lo strumento che esegue i test automatici. Il comando per avviarli è
 ## scritto in docs/STATO.md.
 ## PERCHÉ È SEPARATO: prova la scena completa, mentre test_room_drag.gd prova il calcolo.
@@ -13,6 +13,8 @@ extends GutTest
 
 ## Percorso della scena provata. «res://» indica la cartella principale del progetto.
 const SCENE_PATH: String = "res://scenes/room_editor/room_editor.tscn"
+## Area sensibile minima di un comando, in pixel: vale 48 dp su un telefono largo 360 dp.
+const MIN_TOUCH_PIXELS: float = 96.0
 ## Indice del primo dito.
 const FIRST_FINGER: int = 0
 ## Indice del secondo dito.
@@ -33,11 +35,13 @@ const BEND_TOLERANCE_PIXELS: float = 0.01
 const GIRAFFE: Guest = preload("res://data/guests/giraffe.tres")
 ## Seme fisso della fila usata nei test: con una sola specie l'ordine è comunque sempre lo stesso.
 const TEST_SEED: int = 1
-## Punti di prova nelle quattro metà della camera, come frazioni delle sue misure.
-const UPPER_HALF: Vector2 = Vector2(0.5, 0.25)
-const LOWER_HALF: Vector2 = Vector2(0.5, 0.75)
-const LEFT_HALF: Vector2 = Vector2(0.25, 0.5)
-const RIGHT_HALF: Vector2 = Vector2(0.75, 0.5)
+## Punti di prova sulla parte interna delle quattro maniglie, come frazioni delle misure della camera.
+const UPPER_HANDLE: Vector2 = Vector2(0.5, 0.08)
+const LOWER_HANDLE: Vector2 = Vector2(0.5, 0.92)
+const LEFT_HANDLE: Vector2 = Vector2(0.08, 0.5)
+const RIGHT_HANDLE: Vector2 = Vector2(0.92, 0.5)
+## Il centro della camera, da cui la si sposta intera.
+const ROOM_CENTER: Vector2 = Vector2(0.5, 0.5)
 
 ## La scena provata, ricreata prima di ogni test.
 var _editor: RoomEditor
@@ -109,26 +113,26 @@ func _set_room_shape(cells: Rect2i) -> void:
 	_editor._set_visual_rect(_editor._cells_to_pixels(cells), _editor.room)
 
 
-## Esegue un intero gesto dall'interno: tocca, si muove e rilascia.
+## Esegue un intero gesto iniziato dentro la camera: tocca, si muove e rilascia.
 func _perform_inner_gesture(start: Vector2, movement: Vector2) -> void:
 	_touch(FIRST_FINGER, start, true)
 	_move_finger(FIRST_FINGER, start + movement)
 	_touch(FIRST_FINGER, start + movement, false)
 
 
-## Dalla metà alta o bassa si muove il lato di quella metà, sia per crescere sia per
-## rimpicciolire: è la regola scelta con la decisione D-012.
-func test_inner_gesture_moves_side_of_touched_half() -> void:
+## Anche dalla parte interna di una maniglia si muove il suo lato, sia per crescere sia per
+## rimpicciolire: la camera non si sposta (D-030).
+func test_inner_part_of_handle_moves_its_side() -> void:
 	var cell: float = RoomEditor.CELL_SIZE_PIXELS
 	var cases: Array[Dictionary] = [
-		{"point": UPPER_HALF, "move": Vector2(0.0, -cell), "cells": Rect2i(2, 3, 2, 3)},
-		{"point": UPPER_HALF, "move": Vector2(0.0, cell), "cells": Rect2i(2, 5, 2, 1)},
-		{"point": LOWER_HALF, "move": Vector2(0.0, cell), "cells": Rect2i(2, 4, 2, 3)},
-		{"point": LOWER_HALF, "move": Vector2(0.0, -cell), "cells": Rect2i(2, 4, 2, 1)},
-		{"point": LEFT_HALF, "move": Vector2(-cell, 0.0), "cells": Rect2i(1, 4, 3, 2)},
-		{"point": LEFT_HALF, "move": Vector2(cell, 0.0), "cells": Rect2i(3, 4, 1, 2)},
-		{"point": RIGHT_HALF, "move": Vector2(cell, 0.0), "cells": Rect2i(2, 4, 3, 2)},
-		{"point": RIGHT_HALF, "move": Vector2(-cell, 0.0), "cells": Rect2i(2, 4, 1, 2)},
+		{"point": UPPER_HANDLE, "move": Vector2(0.0, -cell), "cells": Rect2i(2, 3, 2, 3)},
+		{"point": UPPER_HANDLE, "move": Vector2(0.0, cell), "cells": Rect2i(2, 5, 2, 1)},
+		{"point": LOWER_HANDLE, "move": Vector2(0.0, cell), "cells": Rect2i(2, 4, 2, 3)},
+		{"point": LOWER_HANDLE, "move": Vector2(0.0, -cell), "cells": Rect2i(2, 4, 2, 1)},
+		{"point": LEFT_HANDLE, "move": Vector2(-cell, 0.0), "cells": Rect2i(1, 4, 3, 2)},
+		{"point": LEFT_HANDLE, "move": Vector2(cell, 0.0), "cells": Rect2i(3, 4, 1, 2)},
+		{"point": RIGHT_HANDLE, "move": Vector2(cell, 0.0), "cells": Rect2i(2, 4, 3, 2)},
+		{"point": RIGHT_HANDLE, "move": Vector2(-cell, 0.0), "cells": Rect2i(2, 4, 1, 2)},
 	]
 
 	_select_room()
@@ -141,7 +145,7 @@ func test_inner_gesture_moves_side_of_touched_half() -> void:
 ## Finché il dito non si muove abbastanza non deve succedere nulla: tremare non è un gesto.
 func test_small_movement_does_not_start_drag() -> void:
 	_select_room()
-	var start: Vector2 = _point_in_room(UPPER_HALF)
+	var start: Vector2 = _point_in_room(UPPER_HANDLE)
 	var below_threshold: Vector2 = Vector2(0.0, -RoomEditor.GESTURE_RECOGNITION_PIXELS / 2.0)
 
 	_touch(FIRST_FINGER, start, true)
@@ -156,7 +160,7 @@ func test_small_movement_does_not_start_drag() -> void:
 ## Il dito che era in attesa di riconoscimento non deve più contare dopo il rilascio.
 func test_finger_movement_after_tap_is_ignored() -> void:
 	_select_room()
-	var start: Vector2 = _point_in_room(UPPER_HALF)
+	var start: Vector2 = _point_in_room(UPPER_HANDLE)
 
 	_touch(FIRST_FINGER, start, true)
 	_touch(FIRST_FINGER, start, false)
@@ -167,7 +171,7 @@ func test_finger_movement_after_tap_is_ignored() -> void:
 
 ## Senza selezione il gesto non parte: il primo tocco serve solo a selezionare.
 func test_inner_gesture_needs_selected_room() -> void:
-	var start: Vector2 = _point_in_room(UPPER_HALF)
+	var start: Vector2 = _point_in_room(UPPER_HANDLE)
 
 	_touch(FIRST_FINGER, start, true)
 	_move_finger(FIRST_FINGER, start + ONE_CELL_UP)
@@ -178,7 +182,7 @@ func test_inner_gesture_needs_selected_room() -> void:
 ## Un secondo dito non deve avviare né disturbare il riconoscimento del primo.
 func test_second_finger_is_ignored_during_recognition() -> void:
 	_select_room()
-	var start: Vector2 = _point_in_room(UPPER_HALF)
+	var start: Vector2 = _point_in_room(UPPER_HANDLE)
 	_touch(FIRST_FINGER, start, true)
 
 	_move_finger(SECOND_FINGER, start + FAR_ABOVE_ENVELOPE)
@@ -192,7 +196,7 @@ func test_second_finger_is_ignored_during_recognition() -> void:
 ## Se l'app va in pausa durante il riconoscimento, il gesto viene dimenticato.
 func test_app_pause_cancels_recognition() -> void:
 	_select_room()
-	var start: Vector2 = _point_in_room(UPPER_HALF)
+	var start: Vector2 = _point_in_room(UPPER_HANDLE)
 	_touch(FIRST_FINGER, start, true)
 
 	_editor._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
@@ -201,12 +205,12 @@ func test_app_pause_cancels_recognition() -> void:
 	assert_false(_editor.is_dragging())
 
 
-## Deve funzionare anche sulla camera più piccola, dove ogni metà è larga mezza cella.
-func test_inner_gesture_works_on_smallest_room() -> void:
+## Deve funzionare anche sulla camera più piccola, dove le maniglie sono vicine tra loro.
+func test_inner_part_of_handle_works_on_smallest_room() -> void:
 	_set_room_shape(Rect2i(2, 4, 1, 1))
 	_select_room_at_current_shape()
 
-	_perform_inner_gesture(_point_in_room(UPPER_HALF), ONE_CELL_UP)
+	_perform_inner_gesture(_point_in_room(UPPER_HANDLE), ONE_CELL_UP)
 
 	assert_eq(_editor.room.cells, Rect2i(2, 3, 1, 2))
 
@@ -384,7 +388,7 @@ func test_guest_that_does_not_fit_stays_current() -> void:
 ## La scena del concept: la giraffa non entra, si alza il soffitto e allora entra.
 func test_raising_ceiling_lets_guest_in() -> void:
 	_select_room()
-	_perform_inner_gesture(_point_in_room(UPPER_HALF), ONE_CELL_UP)
+	_perform_inner_gesture(_point_in_room(UPPER_HANDLE), ONE_CELL_UP)
 	_tap_center_of_active_room()
 
 	assert_eq(_editor.room.guest, GIRAFFE)
@@ -394,7 +398,7 @@ func test_raising_ceiling_lets_guest_in() -> void:
 func test_drag_does_not_host_guest_or_use_turn() -> void:
 	_select_room()
 
-	_perform_inner_gesture(_point_in_room(UPPER_HALF), ONE_CELL_UP)
+	_perform_inner_gesture(_point_in_room(UPPER_HANDLE), ONE_CELL_UP)
 
 	assert_null(_editor.room.guest)
 	assert_eq(_editor.session.turns_played, 0)
@@ -432,7 +436,7 @@ func test_refusing_is_ignored_during_drag() -> void:
 ## Durante un gesto valido l'ospite viene giudicato sulla forma prevista.
 func test_displayed_cells_follow_valid_preview() -> void:
 	_select_room()
-	var start: Vector2 = _point_in_room(UPPER_HALF)
+	var start: Vector2 = _point_in_room(UPPER_HANDLE)
 	_touch(FIRST_FINGER, start, true)
 	_move_finger(FIRST_FINGER, start + ONE_CELL_UP)
 
@@ -490,7 +494,7 @@ func test_handle_over_neighbor_wins_over_selecting_it() -> void:
 ## Spingendo la parete condivisa cambiano entrambe le camere, ma solo al rilascio.
 func test_pushing_shared_wall_changes_both_rooms_on_release() -> void:
 	_select_room()
-	var start: Vector2 = _point_in_room(RIGHT_HALF)
+	var start: Vector2 = _point_in_room(RIGHT_HANDLE)
 	var end: Vector2 = start + Vector2(RoomEditor.CELL_SIZE_PIXELS, 0.0)
 
 	_touch(FIRST_FINGER, start, true)
@@ -506,7 +510,7 @@ func test_pushing_shared_wall_changes_both_rooms_on_release() -> void:
 ## Rientrando, la camera vicina resta ferma e tra le due si crea spazio libero (D-022).
 func test_pulling_wall_leaves_neighbor_alone() -> void:
 	_select_room()
-	_perform_inner_gesture(_point_in_room(RIGHT_HALF), Vector2(-RoomEditor.CELL_SIZE_PIXELS, 0.0))
+	_perform_inner_gesture(_point_in_room(RIGHT_HANDLE), Vector2(-RoomEditor.CELL_SIZE_PIXELS, 0.0))
 
 	assert_eq(_editor.room.cells, Rect2i(2, 4, 1, 2))
 	assert_eq(_second_room().cells, RoomEditor.SECOND_ROOM_CELLS)
@@ -515,7 +519,7 @@ func test_pulling_wall_leaves_neighbor_alone() -> void:
 ## Se la vicina diventerebbe inutilizzabile si rifiuta tutto e nessuna delle due cambia.
 func test_rejected_push_keeps_both_rooms() -> void:
 	_select_room()
-	_perform_inner_gesture(_point_in_room(RIGHT_HALF), Vector2(2.0 * RoomEditor.CELL_SIZE_PIXELS, 0.0))
+	_perform_inner_gesture(_point_in_room(RIGHT_HANDLE), Vector2(2.0 * RoomEditor.CELL_SIZE_PIXELS, 0.0))
 
 	assert_eq(_editor.room.cells, RoomEditor.INITIAL_ROOM_CELLS)
 	assert_eq(_second_room().cells, RoomEditor.SECOND_ROOM_CELLS)
@@ -524,7 +528,7 @@ func test_rejected_push_keeps_both_rooms() -> void:
 ## Un tocco interrotto riporta entrambe le camere alla forma vera.
 func test_canceled_touch_keeps_both_rooms() -> void:
 	_select_room()
-	var start: Vector2 = _point_in_room(RIGHT_HALF)
+	var start: Vector2 = _point_in_room(RIGHT_HANDLE)
 	var end: Vector2 = start + Vector2(RoomEditor.CELL_SIZE_PIXELS, 0.0)
 
 	_touch(FIRST_FINGER, start, true)
@@ -679,3 +683,181 @@ func test_applied_drag_notifies_session_changed() -> void:
 	_touch(FIRST_FINGER, handle + ONE_CELL_UP, false)
 
 	assert_signal_emitted(_editor, "session_changed")
+
+
+## Trascinando il centro la camera si sposta intera e la forma resta uguale (D-030).
+func test_dragging_center_moves_whole_room() -> void:
+	_select_room()
+
+	_perform_inner_gesture(_point_in_room(ROOM_CENTER), Vector2(-2.0, -3.0) * RoomEditor.CELL_SIZE_PIXELS)
+
+	assert_eq(_editor.room.cells, Rect2i(0, 1, 2, 2))
+	assert_true(_editor.is_room_selected())
+
+
+## Spostare è gratis e non consuma il turno, come allargare.
+func test_moving_room_costs_nothing() -> void:
+	_select_room()
+	_editor.session.coins = 7
+
+	_perform_inner_gesture(_point_in_room(ROOM_CENTER), ONE_CELL_UP)
+
+	assert_eq(_editor.session.coins, 7)
+	assert_eq(_editor.session.turns_played, 0)
+
+
+## Un tocco sul centro, senza trascinare, continua a far entrare l'ospite.
+func test_tapping_center_still_hosts_guest() -> void:
+	_set_room_shape(Rect2i(2, 3, 2, 3))
+	_select_room_at_current_shape()
+
+	_tap_center_of_active_room()
+
+	assert_eq(_editor.room.guest, GIRAFFE)
+
+
+## Sopra un'altra camera lo spostamento è rifiutato: al rilascio torna dov'era, e l'altra non cambia.
+func test_move_onto_neighbor_returns_room() -> void:
+	_select_room()
+
+	_perform_inner_gesture(_point_in_room(ROOM_CENTER), Vector2(RoomEditor.CELL_SIZE_PIXELS, 0.0))
+
+	assert_eq(_editor.room.cells, RoomEditor.INITIAL_ROOM_CELLS)
+	assert_eq(_editor.rooms[1].cells, RoomEditor.SECOND_ROOM_CELLS)
+
+
+## Durante lo spostamento la vicina resta ferma e l'anteprima segnala chi blocca.
+func test_move_preview_shows_blocking_room() -> void:
+	_select_room()
+	var start: Vector2 = _point_in_room(ROOM_CENTER)
+	_touch(FIRST_FINGER, start, true)
+
+	_move_finger(FIRST_FINGER, start + Vector2(RoomEditor.CELL_SIZE_PIXELS, 0.0))
+
+	assert_true(_editor.is_dragging())
+	assert_eq(_editor._drag.preview.blocking_room, _editor.rooms[1])
+	assert_eq(_editor._visual_rects[_editor.rooms[1]], _editor._cells_to_pixels(RoomEditor.SECOND_ROOM_CELLS))
+
+
+## Un tocco annullato dal sistema o la pausa dell'app non spostano la camera.
+func test_interrupted_move_keeps_room() -> void:
+	_select_room()
+	var start: Vector2 = _point_in_room(ROOM_CENTER)
+	_touch(FIRST_FINGER, start, true)
+	_move_finger(FIRST_FINGER, start + ONE_CELL_UP)
+
+	_touch(FIRST_FINGER, start + ONE_CELL_UP, false, true)
+
+	assert_false(_editor.is_dragging())
+	assert_eq(_editor.room.cells, RoomEditor.INITIAL_ROOM_CELLS)
+
+	_touch(FIRST_FINGER, start, true)
+	_move_finger(FIRST_FINGER, start + ONE_CELL_UP)
+	_editor._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+
+	assert_false(_editor.is_dragging())
+	assert_eq(_editor.room.cells, RoomEditor.INITIAL_ROOM_CELLS)
+
+
+## Un secondo dito non deve disturbare lo spostamento.
+func test_second_finger_is_ignored_during_move() -> void:
+	_select_room()
+	var start: Vector2 = _point_in_room(ROOM_CENTER)
+	_touch(FIRST_FINGER, start, true)
+	_move_finger(FIRST_FINGER, start + ONE_CELL_UP)
+
+	_touch(SECOND_FINGER, start, true)
+	_move_finger(SECOND_FINGER, start + FAR_ABOVE_ENVELOPE)
+	_touch(SECOND_FINGER, start, false)
+	_touch(FIRST_FINGER, start + ONE_CELL_UP, false)
+
+	assert_eq(_editor.room.cells, Rect2i(2, 3, 2, 2))
+
+
+## Durante lo spostamento nessun lato si incurva: la camera resta un rettangolo.
+func test_move_does_not_bend_room() -> void:
+	_select_room()
+	var start: Vector2 = _point_in_room(ROOM_CENTER)
+	_touch(FIRST_FINGER, start, true)
+
+	_move_finger(FIRST_FINGER, start + ONE_CELL_UP * NEAR_HALF_CELL_FRACTION)
+
+	assert_true(_editor.is_dragging())
+	assert_eq(_editor._bend, Vector2.ZERO)
+
+
+## La camera da 1 cella deve avere un centro da cui spostarla, nonostante le quattro maniglie.
+func test_smallest_room_has_center_for_moving() -> void:
+	_set_room_shape(Rect2i(2, 4, 1, 1))
+	_select_room_at_current_shape()
+	assert_eq(_editor._find_handle_at(_point_in_room(ROOM_CENTER)), RoomEditor.NONE)
+
+	_perform_inner_gesture(_point_in_room(ROOM_CENTER), ONE_CELL_UP)
+
+	assert_eq(_editor.room.cells, Rect2i(2, 3, 1, 1))
+
+
+## L'area sensibile di ogni maniglia deve restare comoda per un dito: almeno 96 pixel per lato.
+func test_handle_touch_area_is_large_enough() -> void:
+	assert_gte(RoomEditor.HANDLE_TOUCH_OUTSIDE_PIXELS + RoomEditor.HANDLE_TOUCH_INSIDE_PIXELS, MIN_TOUCH_PIXELS)
+	assert_gte(2.0 * RoomEditor.HANDLE_TOUCH_HALF_LENGTH_PIXELS, MIN_TOUCH_PIXELS)
+
+
+## Ricominciare riporta camere, monete, turni e arrivi all'inizio.
+func test_new_game_restores_initial_state() -> void:
+	_editor.session.coins = HotelSession.FIRST_NEW_ROOM_PRICE
+	_editor.session.build_room(Vector2i(0, 0))
+	_editor.refuse_current_guest()
+	_editor.session.get_grid().move_room(_editor.rooms[0], Vector2i(0, -1))
+
+	_editor.start_new_game()
+
+	assert_eq(_editor.rooms.size(), HotelSession.STARTING_ROOMS)
+	assert_eq(_editor.rooms[0].cells, RoomEditor.INITIAL_ROOM_CELLS)
+	assert_eq(_editor.rooms[1].cells, RoomEditor.SECOND_ROOM_CELLS)
+	assert_eq(_editor.session.coins, 0)
+	assert_eq(_editor.session.turns_played, 0)
+	assert_eq(_editor.session.arrivals_left, 1)
+	# I gesti devono lavorare sulla griglia nuova, altrimenti le camere non risponderebbero.
+	assert_eq(_editor.session.get_grid().get_rooms(), _editor.rooms)
+	assert_eq(_editor.room, _editor.rooms[0])
+
+
+## Ricominciare a metà di un gesto o di una costruzione non lascia niente in sospeso.
+func test_new_game_clears_gesture_selection_and_build_mode() -> void:
+	_begin_ceiling_drag()
+	_move_finger(FIRST_FINGER, _editor.get_handle_position(Room.MovableSide.CEILING) + ONE_CELL_UP)
+
+	_editor.start_new_game()
+
+	assert_false(_editor.is_dragging())
+	assert_false(_editor.is_room_selected())
+	assert_eq(_editor.rooms[0].cells, RoomEditor.INITIAL_ROOM_CELLS)
+
+	_enter_build_mode()
+	_editor.start_new_game()
+	assert_false(_editor.is_building())
+
+
+## Un guadagno ancora sullo schermo non deve far cadere il disegno: le sue camere non esistono più.
+func test_new_game_survives_earnings_on_screen() -> void:
+	_set_room_shape(Rect2i(2, 3, 2, 3))
+	_select_room_at_current_shape()
+	_tap_center_of_active_room()
+
+	_editor.start_new_game()
+	_editor.queue_redraw()
+	await wait_process_frames(2)
+
+	assert_true(_editor._shown_earnings.is_empty())
+
+
+## Dopo aver ricominciato si gioca normalmente.
+func test_new_game_can_be_played() -> void:
+	_editor.start_new_game()
+	_editor.start_session(GuestQueue.new([GIRAFFE], TEST_SEED))
+	_select_room()
+
+	_perform_inner_gesture(_point_in_room(ROOM_CENTER), ONE_CELL_UP)
+
+	assert_eq(_editor.room.cells, Rect2i(2, 3, 2, 2))

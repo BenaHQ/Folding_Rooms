@@ -1,8 +1,9 @@
 class_name TurnReport
 extends RefCounted
-## Il resoconto di un turno appena concluso: chi ha pagato quanto e chi se n'è andato.
+## Il resoconto di un turno, cioè di una giornata: chi ha pagato quanto e chi se n'è andato.
 ##
-## COSA FA: conserva il risultato di un turno. È solo un contenitore di dati, senza regole.
+## COSA FA: conserva il risultato di una giornata conclusa. Se la giornata continua perché devono
+## arrivare altri ospiti, il resoconto è vuoto. È solo un contenitore di dati, senza regole.
 ## CHI LA USA: HotelSession lo crea; RoomEditor lo legge per mostrare i guadagni.
 ## PERCHÉ È SEPARATA: chi anima il risultato non deve ricalcolarlo, così non può sbagliarlo.
 ## NOTA GDSCRIPT: «extends RefCounted» crea un oggetto che non compare nella scena. Un Dictionary

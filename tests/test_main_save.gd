@@ -257,3 +257,30 @@ func test_built_room_is_restored_in_scene() -> void:
 	assert_eq(editor._visual_rects[editor.rooms[2]], editor._cells_to_pixels(Rect2i(0, 0, 1, 1)))
 	await wait_process_frames(2)
 	assert_eq(editor.session.coins, 0)
+
+
+## Ricominciando la vecchia partita non torna, nemmeno se l'app si chiude subito senza altri avvisi.
+func test_reset_replaces_save_immediately() -> void:
+	var first: MainWithoutQuit = _launch()
+	_play_one_turn(first)
+	first.propagate_notification(NOTIFICATION_APPLICATION_PAUSED)
+	assert_eq(_editor_of(_launch()).session.turns_played, 1)
+
+	first.get_node("Hud").reset_confirmed.emit()
+
+	_assert_is_new_game(_launch())
+
+
+## Una partita ricaricata si può azzerare, anche se aveva più camere di quelle iniziali.
+func test_loaded_game_can_be_reset() -> void:
+	var first: MainWithoutQuit = _launch()
+	var first_editor: RoomEditor = _editor_of(first)
+	first_editor.session.coins = HotelSession.FIRST_NEW_ROOM_PRICE
+	first_editor.session.build_room(Vector2i(0, 0))
+	first.propagate_notification(NOTIFICATION_APPLICATION_PAUSED)
+	var second: MainWithoutQuit = _launch()
+
+	second.get_node("Hud").reset_confirmed.emit()
+
+	_assert_is_new_game(second)
+	assert_eq(_editor_of(second).rooms.size(), HotelSession.STARTING_ROOMS)

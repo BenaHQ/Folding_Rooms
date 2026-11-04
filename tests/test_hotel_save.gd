@@ -28,6 +28,7 @@ const BAD_COUNTS: Array = [-1.0, 1.5, "3", null, [], 1e300]
 const VALID_DATA: Dictionary = {
 	"coins": 17.0,
 	"turns_played": 5.0,
+	"arrivals_left": 1.0,
 	"rooms": [
 		{"x": 2.0, "y": 4.0, "width": 2.0, "height": 2.0},
 		{"x": 4.0, "y": 4.0, "width": 2.0, "height": 3.0, "guest": "giraffe", "turns_left": 2.0},
@@ -68,6 +69,7 @@ func test_valid_data_is_accepted() -> void:
 	assert_not_null(session)
 	assert_eq(session.coins, 17)
 	assert_eq(session.turns_played, 5)
+	assert_eq(session.arrivals_left, 1)
 	var rooms: Array[Room] = session.get_grid().get_rooms()
 	assert_eq(rooms[0].cells, Rect2i(2, 4, 2, 2))
 	assert_null(rooms[0].guest)
@@ -160,7 +162,7 @@ func test_missing_fields_are_rejected() -> void:
 ## I numeri devono essere interi non negativi e precisi, ovunque si trovino.
 func test_bad_numbers_are_rejected() -> void:
 	for bad_count: Variant in BAD_COUNTS:
-		for key: String in ["coins", "turns_played"]:
+		for key: String in ["coins", "turns_played", "arrivals_left"]:
 			var data: Dictionary = _valid_data()
 			data[key] = bad_count
 			_assert_rejected(data, "%s = %s" % [key, bad_count])
@@ -284,3 +286,27 @@ func test_built_rooms_and_price_survive_saving() -> void:
 	assert_eq(loaded.get_grid().get_rooms()[2].cells, Rect2i(0, 0, 1, 1))
 	assert_eq(loaded.coins, 70)
 	assert_eq(loaded.get_new_room_price(), 50)
+
+
+## Gli arrivi rimasti tornano come prima: chiudere a metà giornata non la fa ripartire.
+func test_day_in_progress_survives_saving() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	for index: int in 4:
+		grid.add_room(Room.new(Rect2i(index, 0, 1, 1)))
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new(SPECIES, TEST_SEED))
+	session.refuse_current_guest()
+	assert_eq(session.arrivals_left, 1)
+
+	var loaded: HotelSession = HotelSession.from_data(_through_json(session.to_data()), SPECIES)
+	assert_not_null(loaded)
+	if loaded == null:
+		return
+
+	assert_eq(loaded.arrivals_left, 1)
+
+
+## Una giornata senza arrivi rimasti non esiste.
+func test_zero_arrivals_left_is_rejected() -> void:
+	var data: Dictionary = _valid_data()
+	data["arrivals_left"] = 0.0
+	_assert_rejected(data, "Nessun arrivo rimasto")

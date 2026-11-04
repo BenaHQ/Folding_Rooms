@@ -31,6 +31,7 @@ var save_path: String = DEFAULT_SAVE_PATH
 func _ready() -> void:
 	_guest_bar.refuse_pressed.connect(_room_editor.refuse_current_guest)
 	_hud.build_pressed.connect(_room_editor.toggle_build_mode)
+	_hud.reset_confirmed.connect(_start_new_game)
 	_room_editor.session_changed.connect(_refresh_interface)
 	_room_editor.build_mode_changed.connect(_refresh_interface)
 	_load_game()
@@ -72,6 +73,13 @@ func _load_game() -> void:
 		push_warning("Impossibile mettere da parte il salvataggio non leggibile.")
 
 
+## Ricomincia da zero e salva subito: se l'app si chiudesse adesso, la vecchia partita non deve
+## tornare. La nuova sostituisce la vecchia nel file: da qui non si può più tornare indietro.
+func _start_new_game() -> void:
+	_room_editor.start_new_game()
+	_save_game()
+
+
 ## Salva la partita. Se non riesce avvisa nel registro e il salvataggio precedente resta valido.
 ## Un trascinamento in corso non è compreso: le camere cambiano solo al rilascio del dito.
 func _save_game() -> void:
@@ -98,5 +106,5 @@ func _quit_game() -> void:
 func _refresh_interface() -> void:
 	var session: HotelSession = _room_editor.session
 	_guest_bar.update_queue(session.get_current_guest(), session.get_upcoming_guests())
-	_hud.update_values(session.coins, session.turns_played)
+	_hud.update_values(session.coins, session.turns_played, session.arrivals_left)
 	_hud.update_build_button(session.get_new_room_price(), session.can_build_room(), _room_editor.is_building())

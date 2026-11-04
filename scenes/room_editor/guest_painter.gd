@@ -119,6 +119,30 @@ static func draw_stay_icon(canvas: CanvasItem, center: Vector2, radius: float) -
 	canvas.draw_line(center, center + Vector2(radius * 0.45, 0.0), INK_COLOR, LINE_PIXELS, true)
 
 
+## Disegna l'icona degli ospiti in arrivo: la porta dell'hotel, con la maniglia.
+static func draw_arrivals_icon(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	_draw_badge(canvas, center, radius)
+	var door_size: Vector2 = Vector2(0.75, 1.15) * radius
+	canvas.draw_rect(Rect2(center - door_size / 2.0, door_size), INK_COLOR, false, LINE_PIXELS)
+	canvas.draw_circle(center + Vector2(radius * 0.18, 0.0), LINE_PIXELS / 2.0, INK_COLOR)
+
+
+## Disegna l'icona per ricominciare: una freccia che gira in cerchio. Gli angoli sono in radianti: lo
+## zero è a destra e si cresce in senso orario, perché in Godot la Y va verso il basso.
+static func draw_reset_icon(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	_draw_badge(canvas, center, radius)
+	var arc_radius: float = radius * 0.5
+	var end_angle: float = TAU * 0.8
+	canvas.draw_arc(center, arc_radius, 0.0, end_angle, ARC_POINTS * 2, INK_COLOR, LINE_PIXELS, true)
+
+	# La punta è formata da due tratti che partono dalla fine dell'arco, lungo il verso di rotazione.
+	var tip: Vector2 = center + Vector2.from_angle(end_angle) * arc_radius
+	var forward: Vector2 = Vector2.from_angle(end_angle + PI / 2.0)
+	var head_length: float = radius * ARROW_HEAD_FRACTION
+	canvas.draw_line(tip, tip - forward.rotated(PI / 4.0) * head_length, INK_COLOR, LINE_PIXELS, true)
+	canvas.draw_line(tip, tip - forward.rotated(-PI / 4.0) * head_length, INK_COLOR, LINE_PIXELS, true)
+
+
 ## Disegna l'icona della costruzione: un segno «+».
 static func draw_plus_icon(canvas: CanvasItem, center: Vector2, radius: float) -> void:
 	_draw_badge(canvas, center, radius)

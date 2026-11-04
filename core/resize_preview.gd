@@ -17,7 +17,7 @@ enum Rejection {
 	NONE, ## Nessun rifiuto: la modifica è permessa.
 	TOO_SMALL, ## La camera scenderebbe sotto le misure minime.
 	OUTSIDE_ENVELOPE, ## La camera uscirebbe dall'involucro.
-	OVERLAPS_ROOM, ## La camera finirebbe sopra un'altra, che non resterebbe rettangolare.
+	OVERLAPS_ROOM, ## La camera finirebbe sopra un'altra, che non può cederle spazio.
 	NEIGHBOR_TOO_SMALL, ## Una camera vicina scenderebbe sotto le misure minime.
 	GUEST_WOULD_NOT_FIT, ## L'ospite di questa camera o di una vicina non ci entrerebbe più.
 }

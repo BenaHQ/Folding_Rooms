@@ -371,3 +371,81 @@ func test_full_envelope_has_no_free_cells() -> void:
 	assert_true(grid.add_room(Room.new(Rect2i(0, 0, 2, 2))))
 
 	assert_true(grid.get_free_cells().is_empty())
+
+
+## Una camera si sposta intera in uno spazio libero e la forma non cambia (D-030).
+func test_room_moves_into_free_space() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	var room: Room = Room.new(Rect2i(2, 2, 2, 3))
+	assert_true(grid.add_room(room))
+
+	assert_true(grid.move_room(room, Vector2i(1, -2)).is_valid())
+
+	assert_eq(room.cells, Rect2i(3, 0, 2, 3))
+
+
+## L'anteprima dello spostamento non modifica nulla.
+func test_preview_move_does_not_modify_room() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	var room: Room = Room.new(Rect2i(2, 2, 2, 2))
+	assert_true(grid.add_room(room))
+
+	var preview: ResizePreview = grid.preview_move(room, Vector2i.ONE)
+
+	assert_eq(preview.resulting_cells, Rect2i(3, 3, 2, 2))
+	assert_eq(room.cells, Rect2i(2, 2, 2, 2))
+
+
+## Fuori dall'involucro non si va, da nessun lato.
+func test_room_cannot_move_outside_envelope() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	var room: Room = Room.new(Rect2i(0, 0, 2, 2))
+	assert_true(grid.add_room(room))
+
+	for offset: Vector2i in [Vector2i(-1, 0), Vector2i(0, -1), Vector2i(5, 0), Vector2i(0, 7)]:
+		assert_eq(grid.move_room(room, offset).rejection, ResizePreview.Rejection.OUTSIDE_ENVELOPE)
+
+	assert_eq(room.cells, Rect2i(0, 0, 2, 2))
+
+
+## Spostarsi non spinge nessuno: sopra un'altra camera è rifiutato, e l'anteprima dice quale blocca.
+func test_room_cannot_move_onto_another() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	var room: Room = Room.new(Rect2i(0, 0, 2, 2))
+	var other_room: Room = Room.new(Rect2i(3, 0, 2, 2))
+	assert_true(grid.add_room(room))
+	assert_true(grid.add_room(other_room))
+
+	var preview: ResizePreview = grid.move_room(room, Vector2i(2, 0))
+
+	assert_eq(preview.rejection, ResizePreview.Rejection.OVERLAPS_ROOM)
+	assert_eq(preview.blocking_room, other_room)
+	assert_eq(room.cells, Rect2i(0, 0, 2, 2))
+	assert_eq(other_room.cells, Rect2i(3, 0, 2, 2))
+
+
+## Può fermarsi accanto a un'altra camera, e passarle oltre: conta solo dove arriva.
+func test_room_can_touch_or_pass_over_another() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	var room: Room = Room.new(Rect2i(0, 0, 1, 1))
+	assert_true(grid.add_room(room))
+	assert_true(grid.add_room(Room.new(Rect2i(2, 0, 1, 1))))
+
+	assert_true(grid.move_room(room, Vector2i(1, 0)).is_valid())
+	assert_true(grid.move_room(room, Vector2i(2, 0)).is_valid())
+
+	assert_eq(room.cells, Rect2i(3, 0, 1, 1))
+
+
+## L'ospite si sposta con la sua camera, e la sua permanenza non cambia.
+func test_guest_moves_with_room() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	var room: Room = Room.new(Rect2i(0, 0, 1, 1))
+	assert_true(grid.add_room(room))
+	var guest: Guest = preload("res://data/guests/dormouse.tres")
+	assert_true(grid.assign_guest(guest, room))
+
+	assert_true(grid.move_room(room, Vector2i(3, 3)).is_valid())
+
+	assert_eq(room.guest, guest)
+	assert_eq(room.turns_left, guest.stay_turns)

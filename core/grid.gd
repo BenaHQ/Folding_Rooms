@@ -16,6 +16,9 @@ extends RefCounted
 ## restano rettangolari: se la parete non copre tutto il lato dell'altra camera, spingere è
 ## rifiutato. Una camera non viene mai cancellata e la spinta non passa a quella dietro.
 
+## SPOSTAMENTO (decisione D-030): una camera intera si sposta solo in uno spazio libero. Non spinge
+## nessuno e conta solo dove arriva, quindi può passare sopra le altre mentre è sollevata dal dito.
+
 ## OSPITI (decisione D-019): un ospite entra solo se la camera ha la misura per entrare. Una
 ## modifica che lascerebbe fuori un ospite già presente è rifiutata: non viene mai scacciato.
 
@@ -80,6 +83,34 @@ func resize_room(room: Room, side: Room.MovableSide, offset_cells: int) -> Resiz
 	return preview
 
 
+## Calcola il risultato dello spostamento di una camera intera, senza modificare nulla. offset_cells
+## è in celle: X positiva verso destra, Y positiva verso il basso. La forma non cambia, quindi non
+## serve controllare l'ospite. Restituisce le celle previste e il motivo di un eventuale rifiuto.
+func preview_move(room: Room, offset_cells: Vector2i) -> ResizePreview:
+	var new_cells: Rect2i = Rect2i(room.cells.position + offset_cells, room.cells.size)
+	var rejection: ResizePreview.Rejection = _find_shape_rejection(new_cells)
+
+	if rejection != ResizePreview.Rejection.NONE:
+		return ResizePreview.new(new_cells, rejection)
+
+	for other_room: Room in _rooms:
+		if other_room != room and other_room.cells.intersects(new_cells):
+			return ResizePreview.new(new_cells, ResizePreview.Rejection.OVERLAPS_ROOM, [], other_room)
+
+	return ResizePreview.new(new_cells, ResizePreview.Rejection.NONE)
+
+
+## Sposta una camera intera, con il suo ospite, se è permesso; altrimenti non cambia nulla.
+## Restituisce l'anteprima usata per decidere.
+func move_room(room: Room, offset_cells: Vector2i) -> ResizePreview:
+	var preview: ResizePreview = preview_move(room, offset_cells)
+
+	if preview.is_valid():
+		room.cells = preview.resulting_cells
+
+	return preview
+
+
 ## Fa entrare un ospite in una camera libera, se ci può entrare. Restituisce true se è entrato.
 func assign_guest(guest: Guest, room: Room) -> bool:
 	if room.guest != null or guest.need.evaluate(room.cells.size) == Need.Fit.DOES_NOT_FIT:
@@ -99,6 +130,11 @@ func remove_guest(room: Room) -> void:
 ## Restituisce le camere della griglia. L'elenco va solo letto: si aggiunge con add_room().
 func get_rooms() -> Array[Room]:
 	return _rooms
+
+
+## Restituisce tutte le celle dell'involucro, come rettangolo in celle.
+func get_envelope_cells() -> Rect2i:
+	return _envelope.get_cells()
 
 
 ## Restituisce le celle dell'involucro non occupate da nessuna camera, riga per riga.

@@ -93,3 +93,58 @@ func test_interface_follows_session() -> void:
 
 	assert_eq(_bar._current_guest, _editor.session.get_current_guest())
 	assert_eq(_hud._turns, 1)
+
+
+## Simula un dito che tocca il pulsante Costruisci.
+func _press_build_button() -> void:
+	var touch: InputEventScreenTouch = InputEventScreenTouch.new()
+	touch.pressed = true
+	_hud._build_button._gui_input(touch)
+
+
+## Il pulsante Costruisci deve essere comodo da toccare e non deve coprire i numeri.
+func test_build_button_size_and_position() -> void:
+	var button: BuildButton = _hud._build_button
+	var rect: Rect2 = button.get_global_rect()
+
+	assert_gte(rect.size.x, MIN_TOUCH_PIXELS)
+	assert_gte(rect.size.y, MIN_TOUCH_PIXELS)
+	assert_false(rect.intersects(_hud.get_turn_icon_rect()))
+	assert_gte(rect.position.y, 0.0)
+	# Sopra l'involucro: il pulsante fermerebbe i tocchi destinati alle camere.
+	assert_lte(rect.end.y, _editor.get_envelope_origin().y)
+
+
+## Il tocco sul pulsante arriva fino alla scena delle camere, e il pulsante mostra lo stato.
+func test_build_button_toggles_build_mode() -> void:
+	_editor.session.coins = HotelSession.FIRST_NEW_ROOM_PRICE
+	_editor.session_changed.emit()
+	assert_true(_hud._build_button._can_build)
+
+	_press_build_button()
+
+	assert_true(_editor.is_building())
+	assert_true(_hud._build_button._is_active)
+
+	_press_build_button()
+
+	assert_false(_editor.is_building())
+	assert_false(_hud._build_button._is_active)
+
+
+## Dopo un acquisto l'interfaccia mostra le monete rimaste e il prezzo nuovo.
+func test_interface_follows_building() -> void:
+	assert_eq(_hud._build_button._price, HotelSession.FIRST_NEW_ROOM_PRICE)
+	assert_false(_hud._build_button._can_build)
+
+	_editor.session.coins = HotelSession.FIRST_NEW_ROOM_PRICE
+	_editor.toggle_build_mode()
+	var free_cell: Vector2 = _editor.get_envelope_origin() + Vector2.ONE
+	var touch: InputEventScreenTouch = InputEventScreenTouch.new()
+	touch.pressed = true
+	touch.position = free_cell
+	_editor._gui_input(touch)
+
+	assert_eq(_hud._coins, 0)
+	assert_eq(_hud._build_button._price, HotelSession.FIRST_NEW_ROOM_PRICE + HotelSession.NEW_ROOM_PRICE_STEP)
+	assert_false(_hud._build_button._can_build)

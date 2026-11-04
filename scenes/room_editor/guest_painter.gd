@@ -119,6 +119,14 @@ static func draw_stay_icon(canvas: CanvasItem, center: Vector2, radius: float) -
 	canvas.draw_line(center, center + Vector2(radius * 0.45, 0.0), INK_COLOR, LINE_PIXELS, true)
 
 
+## Disegna l'icona della costruzione: un segno «+».
+static func draw_plus_icon(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	_draw_badge(canvas, center, radius)
+	var reach: float = radius * 0.55
+	canvas.draw_line(center + Vector2(-reach, 0.0), center + Vector2(reach, 0.0), INK_COLOR, LINE_PIXELS, true)
+	canvas.draw_line(center + Vector2(0.0, -reach), center + Vector2(0.0, reach), INK_COLOR, LINE_PIXELS, true)
+
+
 ## Disegna un viso in un'icona: sorridente se is_happy è true, triste altrimenti.
 static func draw_mood_icon(canvas: CanvasItem, center: Vector2, radius: float, is_happy: bool) -> void:
 	_draw_badge(canvas, center, radius)

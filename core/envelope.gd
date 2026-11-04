@@ -30,6 +30,11 @@ func _init(width_cells: int = PROTOTYPE_WIDTH_CELLS, height_cells: int = PROTOTY
 	_cells = Rect2i(0, 0, width_cells, height_cells)
 
 
+## Restituisce tutte le celle dell'involucro, come rettangolo in celle.
+func get_cells() -> Rect2i:
+	return _cells
+
+
 ## Restituisce true se tutte le celle del rettangolo stanno dentro l'involucro.
 ## Il parametro cells è in celle. La funzione non modifica nulla.
 func contains(cells: Rect2i) -> bool:

@@ -3,7 +3,8 @@ extends GutTest
 ##
 ## COMPORTAMENTO PROTETTO: gli ospiti arrivano uno alla volta. Ospitare o rifiutare conclude il
 ## turno; a ogni turno chi è in camera paga secondo come sta in quel momento e, finita la
-## permanenza, parte (D-026). Stare comodi rende più che stare stipati (D-019).
+## permanenza, parte (D-026). Stare comodi rende più che stare stipati (D-019). Le monete comprano
+## nuove camere a prezzo crescente, senza consumare il turno (D-028).
 ## CHI LO USA: GUT, lo strumento che esegue i test automatici. Il comando per avviarli è scritto
 ## in docs/STATO.md.
 ## PERCHÉ È SEPARATO: prova un'intera partita senza scene né grafica.
@@ -160,3 +161,89 @@ func test_every_occupied_room_pays() -> void:
 func test_too_big_room_pays_as_uncomfortable() -> void:
 	assert_eq(DORMOUSE.get_pay(Need.Fit.TOO_BIG), DORMOUSE.uncomfortable_pay)
 	assert_eq(DORMOUSE.get_pay(Need.Fit.CRAMPED), DORMOUSE.uncomfortable_pay)
+
+
+## Crea una partita con due camere iniziali e le monete indicate, come all'avvio del gioco.
+func _make_session_with_coins(coins: int) -> HotelSession:
+	var grid: Grid = Grid.new(Envelope.new())
+	assert_true(grid.add_room(Room.new(Rect2i(2, 4, 2, 2))))
+	assert_true(grid.add_room(Room.new(Rect2i(4, 4, 2, 2))))
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new([GIRAFFE], TEST_SEED))
+	session.coins = coins
+	return session
+
+
+## Il prezzo parte da 30 e sale di 20 per ogni camera costruita (D-028).
+func test_room_price_rises_with_each_room() -> void:
+	var session: HotelSession = _make_session_with_coins(1000)
+
+	assert_eq(session.get_new_room_price(), 30)
+	assert_not_null(session.build_room(Vector2i(0, 0)))
+	assert_eq(session.get_new_room_price(), 50)
+	assert_not_null(session.build_room(Vector2i(1, 0)))
+	assert_eq(session.get_new_room_price(), 70)
+	assert_eq(session.coins, 1000 - 30 - 50)
+
+
+## La camera nasce da 1 cella nel punto scelto, e la griglia la conosce.
+func test_built_room_is_one_cell_in_grid() -> void:
+	var session: HotelSession = _make_session_with_coins(30)
+
+	var room: Room = session.build_room(Vector2i(0, 7))
+
+	assert_eq(room.cells, Rect2i(0, 7, 1, 1))
+	assert_true(session.get_grid().get_rooms().has(room))
+	assert_null(room.guest)
+
+
+## Costruire non consuma il turno: l'ospite di turno resta e nessuno paga (D-028).
+func test_building_does_not_end_turn() -> void:
+	var session: HotelSession = _make_session_with_coins(30)
+	var guest: Guest = session.get_current_guest()
+
+	session.build_room(Vector2i(0, 0))
+
+	assert_eq(session.turns_played, 0)
+	assert_eq(session.get_current_guest(), guest)
+
+
+## Con un'unica moneta in meno non si costruisce, e non cambia nulla.
+func test_cannot_build_without_enough_coins() -> void:
+	var session: HotelSession = _make_session_with_coins(29)
+
+	assert_false(session.can_build_room())
+	assert_null(session.build_room(Vector2i(0, 0)))
+	assert_eq(session.coins, 29)
+	assert_eq(session.get_grid().get_rooms().size(), HotelSession.STARTING_ROOMS)
+
+
+## Una cella occupata o fuori dall'involucro non si può comprare, e le monete restano.
+func test_cannot_build_on_occupied_or_outside_cells() -> void:
+	var session: HotelSession = _make_session_with_coins(30)
+
+	for cell: Vector2i in [Vector2i(2, 4), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(6, 0), Vector2i(0, 8)]:
+		assert_null(session.build_room(cell), "Cella %s" % cell)
+
+	assert_eq(session.coins, 30)
+	assert_eq(session.get_grid().get_rooms().size(), HotelSession.STARTING_ROOMS)
+
+
+## Con l'hotel pieno le monete non bastano a creare spazio: non si può costruire.
+func test_cannot_build_when_no_cell_is_free() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	assert_true(grid.add_room(Room.new(Rect2i(0, 0, Envelope.PROTOTYPE_WIDTH_CELLS, Envelope.PROTOTYPE_HEIGHT_CELLS))))
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new([GIRAFFE], TEST_SEED))
+	session.coins = 1000
+
+	assert_false(session.can_build_room())
+
+
+## Una camera costruita funziona come le altre: si allarga gratis e ospita, e chi ospita paga.
+func test_built_room_works_like_any_other() -> void:
+	var session: HotelSession = _make_session_with_coins(30)
+	var room: Room = session.build_room(Vector2i(0, 0))
+
+	assert_true(session.get_grid().resize_room(room, Room.MovableSide.FLOOR, 2).is_valid())
+	assert_eq(session.coins, 0)
+	assert_not_null(session.host_current_guest(room))
+	assert_eq(session.coins, GIRAFFE.uncomfortable_pay)

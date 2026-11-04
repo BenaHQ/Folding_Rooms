@@ -353,3 +353,21 @@ func test_add_room_rejects_invalid_rooms() -> void:
 	assert_false(grid.add_room(Room.new(Rect2i(3, 4, 2, 2))), "si sovrappone a un'altra camera")
 	assert_false(grid.add_room(Room.new(Rect2i(0, 0, 0, 2))), "non ha celle")
 	assert_true(grid.add_room(Room.new(Rect2i(0, 0, 1, 1))), "occupa spazio libero con le misure minime")
+
+
+## Le celle libere sono tutte quelle dell'involucro non occupate da una camera.
+func test_free_cells_exclude_rooms() -> void:
+	var grid: Grid = Grid.new(Envelope.new(3, 2))
+	assert_eq(grid.get_free_cells().size(), 6)
+
+	assert_true(grid.add_room(Room.new(Rect2i(0, 0, 2, 2))))
+
+	assert_eq(grid.get_free_cells(), [Vector2i(2, 0), Vector2i(2, 1)] as Array[Vector2i])
+
+
+## Se le camere occupano tutto l'involucro non restano celle libere.
+func test_full_envelope_has_no_free_cells() -> void:
+	var grid: Grid = Grid.new(Envelope.new(2, 2))
+	assert_true(grid.add_room(Room.new(Rect2i(0, 0, 2, 2))))
+
+	assert_true(grid.get_free_cells().is_empty())

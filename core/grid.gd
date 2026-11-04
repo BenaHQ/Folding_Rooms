@@ -101,6 +101,28 @@ func get_rooms() -> Array[Room]:
 	return _rooms
 
 
+## Restituisce le celle dell'involucro non occupate da nessuna camera, riga per riga.
+func get_free_cells() -> Array[Vector2i]:
+	var envelope_cells: Rect2i = _envelope.get_cells()
+	var free_cells: Array[Vector2i] = []
+
+	for y: int in range(envelope_cells.position.y, envelope_cells.end.y):
+		for x: int in range(envelope_cells.position.x, envelope_cells.end.x):
+			if _find_room_on_cell(Vector2i(x, y)) == null:
+				free_cells.append(Vector2i(x, y))
+
+	return free_cells
+
+
+## Restituisce la camera che occupa una cella, oppure null se la cella è libera.
+func _find_room_on_cell(cell: Vector2i) -> Room:
+	for room: Room in _rooms:
+		if room.cells.has_point(cell):
+			return room
+
+	return null
+
+
 ## Restituisce true se l'ospite della camera, se c'è, entrerebbe ancora in cells.
 func _guest_would_fit(room: Room, cells: Rect2i) -> bool:
 	return room.guest == null or room.guest.need.evaluate(cells.size) != Need.Fit.DOES_NOT_FIT

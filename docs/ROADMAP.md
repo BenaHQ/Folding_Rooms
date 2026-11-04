@@ -87,7 +87,16 @@
 - [x] Salvataggio alla pausa dell'app e gestione del tasto Indietro (D-027). Il tasto Indietro vero è da provare su Android.
 - [x] Test: salva e ricarica, file danneggiato, versione diversa.
 
+## Fase 6b — Far crescere il prototipo
+
+**Obiettivo:** avere abbastanza gioco da far valere una prova con altre persone (D-028). Dopo due o tre funzioni si valuta una prima prova con una sola persona.
+
+- [x] Nuove camere comprate con le monete, con il pulsante Costruisci e un prezzo crescente (D-028).
+- [ ] Decisione: prossima funzione tra luce e buio, arredi funzionali, piani e scorrimento.
+
 ## Fase 7 — Prova con i giocatori
+
+**Rinviata da Riccardo finché il prototipo non ha più funzioni (D-028).**
 
 **Obiettivo:** capire se il nucleo regge con chi non conosce il gioco.
 
@@ -122,6 +131,7 @@
 - [ ] Ricordi (`Keepsake`), ospiti che tornano e incarichi (`Task`).
 - [ ] Decisioni: numero di specie e monetizzazione, prima di bilanciare l'economia perché la condizionano.
 - [ ] Bilanciamento dell'economia: compensi legati soprattutto al benessere, nessun premio alla densità di ospiti (D-019).
+- [ ] Idea di Riccardo da riprendere col bilanciamento: costruire una camera potrebbe consumare il turno, e diventare così un'alternativa a ospitare (D-028). Per ora non lo consuma.
 - [ ] Decisioni e sviluppo: finale, contenuti successivi, salvataggi remoti.
 
 ## Fase 10 — Pubblicazione

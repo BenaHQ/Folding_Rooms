@@ -240,3 +240,20 @@ func test_back_with_nothing_to_cancel_saves_and_quits() -> void:
 
 	assert_eq(main.quit_count, 1)
 	assert_eq(SaveFile.read(TEST_PATH).status, SaveFile.Status.LOADED)
+
+
+## Dopo il caricamento anche la camera costruita è disegnabile e toccabile come le altre.
+func test_built_room_is_restored_in_scene() -> void:
+	var first: MainWithoutQuit = _launch()
+	var first_editor: RoomEditor = _editor_of(first)
+	first_editor.session.coins = HotelSession.FIRST_NEW_ROOM_PRICE
+	first_editor.session.build_room(Vector2i(0, 0))
+	first.propagate_notification(NOTIFICATION_APPLICATION_PAUSED)
+
+	var editor: RoomEditor = _editor_of(_launch())
+
+	assert_eq(editor.rooms.size(), 3)
+	assert_true(editor._painters.has(editor.rooms[2]))
+	assert_eq(editor._visual_rects[editor.rooms[2]], editor._cells_to_pixels(Rect2i(0, 0, 1, 1)))
+	await wait_process_frames(2)
+	assert_eq(editor.session.coins, 0)

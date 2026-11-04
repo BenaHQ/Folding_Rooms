@@ -1,6 +1,6 @@
 class_name HotelSession
 extends RefCounted
-## Una partita: la fila degli ospiti, i turni e le monete.
+## Una partita: la fila degli ospiti, i turni, le monete e la costruzione di nuove camere.
 ##
 ## COSA FA: applica il ciclo di gioco deciso con D-026. Ospitare o rifiutare l'ospite di turno
 ## conclude il turno: chi è in camera paga secondo come sta in quel momento, poi resta un turno in
@@ -8,10 +8,20 @@ extends RefCounted
 ## CHI LA USA: la scena RoomEditor, che le passa le azioni del giocatore.
 ## PERCHÉ È SEPARATA: non usa nodi né disegno, quindi i test automatici possono provare un'intera
 ## partita. Non decide chi entra dove: lo chiede a Grid.
+## NUOVE CAMERE (D-028): una camera nuova nasce da 1 cella e si allarga gratis con il gesto. Costa
+## monete, sempre di più, e non consuma il turno. Il prezzo si ricava da quante camere esistono.
 ## NOTA GDSCRIPT: «extends RefCounted» crea un oggetto che non compare nella scena.
 
 ## Quanti ospiti in fila si vedono oltre a quello di turno.
 const VISIBLE_UPCOMING_GUESTS: int = 2
+## Camere con cui inizia ogni partita: non si pagano e non fanno salire il prezzo.
+const STARTING_ROOMS: int = 2
+## Prezzo della prima camera costruita, in monete. Vale circa un soggiorno comodo della giraffa.
+const FIRST_NEW_ROOM_PRICE: int = 30
+## Di quante monete sale il prezzo per ogni camera già costruita.
+const NEW_ROOM_PRICE_STEP: int = 20
+## Misure di una camera appena costruita, in celle.
+const NEW_ROOM_SIZE_CELLS: Vector2i = Vector2i.ONE
 ## Nomi dei campi nel salvataggio.
 const COINS_KEY: String = "coins"
 const TURNS_PLAYED_KEY: String = "turns_played"
@@ -68,6 +78,35 @@ func host_current_guest(room: Room) -> TurnReport:
 ## Rifiuta l'ospite di turno: se ne va senza pagare e il turno si conclude (D-026).
 func refuse_current_guest() -> TurnReport:
 	return _end_turn()
+
+
+## Restituisce il prezzo della prossima camera, in monete: FIRST_NEW_ROOM_PRICE per la prima, poi
+## NEW_ROOM_PRICE_STEP in più per ogni camera già costruita. Non modifica nulla.
+func get_new_room_price() -> int:
+	# maxi() sceglie il maggiore: una griglia con meno camere iniziali non dà uno sconto.
+	var built_rooms: int = maxi(_grid.get_rooms().size() - STARTING_ROOMS, 0)
+	return FIRST_NEW_ROOM_PRICE + NEW_ROOM_PRICE_STEP * built_rooms
+
+
+## Restituisce true se ora si può costruire: le monete bastano e c'è almeno una cella libera.
+func can_build_room() -> bool:
+	return coins >= get_new_room_price() and not _grid.get_free_cells().is_empty()
+
+
+## Costruisce una camera nella cella indicata, in celle, e ne sottrae il prezzo. Il turno continua.
+## Restituisce la camera, oppure null se le monete non bastano o la cella non è libera: in quel caso
+## non cambia nulla.
+func build_room(cell: Vector2i) -> Room:
+	var price: int = get_new_room_price()
+	if coins < price:
+		return null
+
+	var new_room: Room = Room.new(Rect2i(cell, NEW_ROOM_SIZE_CELLS))
+	if not _grid.add_room(new_room):
+		return null
+
+	coins -= price
+	return new_room
 
 
 ## Restituisce la griglia della partita, con le sue camere.

@@ -30,7 +30,9 @@ var save_path: String = DEFAULT_SAVE_PATH
 ## Godot chiama _ready() quando il nodo e i suoi figli sono pronti: qui si fanno i collegamenti.
 func _ready() -> void:
 	_guest_bar.refuse_pressed.connect(_room_editor.refuse_current_guest)
+	_hud.build_pressed.connect(_room_editor.toggle_build_mode)
 	_room_editor.session_changed.connect(_refresh_interface)
+	_room_editor.build_mode_changed.connect(_refresh_interface)
 	_load_game()
 	_refresh_interface()
 
@@ -97,3 +99,4 @@ func _refresh_interface() -> void:
 	var session: HotelSession = _room_editor.session
 	_guest_bar.update_queue(session.get_current_guest(), session.get_upcoming_guests())
 	_hud.update_values(session.coins, session.turns_played)
+	_hud.update_build_button(session.get_new_room_price(), session.can_build_room(), _room_editor.is_building())

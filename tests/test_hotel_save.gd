@@ -264,3 +264,23 @@ func test_every_species_has_a_unique_id() -> void:
 		ids[guest.id] = true
 
 	assert_eq(ids.size(), SPECIES.size())
+
+
+## Le camere costruite restano nel salvataggio, e il prezzo riparte da dove era.
+func test_built_rooms_and_price_survive_saving() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	grid.add_room(Room.new(Rect2i(2, 4, 2, 2)))
+	grid.add_room(Room.new(Rect2i(4, 4, 2, 2)))
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new(SPECIES, TEST_SEED))
+	session.coins = 100
+	session.build_room(Vector2i(0, 0))
+
+	var loaded: HotelSession = HotelSession.from_data(_through_json(session.to_data()), SPECIES)
+	assert_not_null(loaded)
+	if loaded == null:
+		return
+
+	assert_eq(loaded.get_grid().get_rooms().size(), 3)
+	assert_eq(loaded.get_grid().get_rooms()[2].cells, Rect2i(0, 0, 1, 1))
+	assert_eq(loaded.coins, 70)
+	assert_eq(loaded.get_new_room_price(), 50)

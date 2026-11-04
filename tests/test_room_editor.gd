@@ -3,7 +3,7 @@ extends GutTest
 ##
 ## COMPORTAMENTO PROTETTO: toccare una camera mostra le sue maniglie; trascinare una maniglia e
 ## rilasciare applica la modifica, anche alla camera vicina; un secondo dito viene ignorato; un
-## tocco interrotto non cambia le camere. La sensazione del gesto non è giudicabile da un test: va provata a mano.
+## tocco interrotto non cambia le camere. In modalità costruzione un tocco su una cella libera compra una camera (D-028). La sensazione del gesto non è giudicabile da un test: va provata a mano.
 ## CHI LO USA: GUT, lo strumento che esegue i test automatici. Il comando per avviarli è
 ## scritto in docs/STATO.md.
 ## PERCHÉ È SEPARATO: prova la scena completa, mentre test_room_drag.gd prova il calcolo.
@@ -540,3 +540,142 @@ func _select_room_at_current_shape() -> void:
 	var center: Vector2 = _point_in_room(Vector2(0.5, 0.5))
 	_touch(FIRST_FINGER, center, true)
 	_touch(FIRST_FINGER, center, false)
+
+
+## Restituisce il centro di una cella, in pixel del nodo.
+func _cell_center(cell: Vector2i) -> Vector2:
+	return _editor.get_envelope_origin() + (Vector2(cell) + Vector2(0.5, 0.5)) * RoomEditor.CELL_SIZE_PIXELS
+
+
+## Dà le monete per una camera e attiva la modalità costruzione.
+func _enter_build_mode() -> void:
+	_editor.session.coins = HotelSession.FIRST_NEW_ROOM_PRICE
+	_editor.toggle_build_mode()
+	assert_true(_editor.is_building())
+
+
+## Senza monete la modalità costruzione non si attiva.
+func test_build_mode_needs_coins() -> void:
+	_editor.toggle_build_mode()
+
+	assert_false(_editor.is_building())
+
+
+## Attivando la costruzione la selezione sparisce, così le maniglie non coprono le celle libere.
+func test_build_mode_deselects_room() -> void:
+	_select_room()
+
+	_enter_build_mode()
+
+	assert_false(_editor.is_room_selected())
+
+
+## Il pulsante premuto di nuovo annulla, senza spendere nulla.
+func test_toggle_again_cancels_build_mode() -> void:
+	_enter_build_mode()
+
+	_editor.toggle_build_mode()
+
+	assert_false(_editor.is_building())
+	assert_eq(_editor.session.coins, HotelSession.FIRST_NEW_ROOM_PRICE)
+
+
+## Toccando una cella libera si compra la camera, che diventa subito quella selezionata per poterla
+## allargare. Il turno non cambia.
+func test_tap_on_free_cell_builds_room() -> void:
+	_enter_build_mode()
+
+	var cell: Vector2i = Vector2i(0, 7)
+	_touch(FIRST_FINGER, _cell_center(cell), true)
+	_touch(FIRST_FINGER, _cell_center(cell), false)
+
+	assert_false(_editor.is_building())
+	assert_eq(_editor.rooms.size(), 3)
+	assert_eq(_editor.room, _editor.rooms[2])
+	assert_eq(_editor.room.cells, Rect2i(cell, Vector2i.ONE))
+	assert_true(_editor.is_room_selected())
+	assert_eq(_editor.session.coins, 0)
+	assert_eq(_editor.session.turns_played, 0)
+
+
+## Dopo l'animazione la camera nuova è disegnata alla sua misura vera.
+func test_new_room_grows_to_its_real_size() -> void:
+	_enter_build_mode()
+	_touch(FIRST_FINGER, _cell_center(Vector2i(0, 7)), true)
+	var new_room: Room = _editor.rooms[2]
+	var final_rect: Rect2 = _editor._cells_to_pixels(new_room.cells)
+	assert_lt(_editor._visual_rects[new_room].size.x, final_rect.size.x)
+
+	await wait_seconds(RoomEditor.SETTLE_SECONDS + ANIMATION_MARGIN_SECONDS)
+
+	assert_eq(_editor._visual_rects[new_room], final_rect)
+
+
+## La camera nuova si allarga con il gesto normale, gratis.
+func test_new_room_can_be_widened_with_gesture() -> void:
+	_enter_build_mode()
+	_touch(FIRST_FINGER, _cell_center(Vector2i(0, 7)), true)
+	_touch(FIRST_FINGER, _cell_center(Vector2i(0, 7)), false)
+
+	var handle: Vector2 = _editor.get_handle_position(Room.MovableSide.RIGHT_WALL) + Vector2(10.0, 0.0)
+	_touch(FIRST_FINGER, handle, true)
+	assert_true(_editor.is_dragging())
+	_move_finger(FIRST_FINGER, handle + Vector2(RoomEditor.CELL_SIZE_PIXELS, 0.0))
+	_touch(FIRST_FINGER, handle + Vector2(RoomEditor.CELL_SIZE_PIXELS, 0.0), false)
+
+	assert_eq(_editor.rooms[2].cells, Rect2i(0, 7, 2, 1))
+	assert_eq(_editor.session.coins, 0)
+
+
+## Toccare una camera o fuori dall'involucro annulla soltanto: non si spende nulla.
+func test_tap_elsewhere_cancels_build_mode() -> void:
+	var points: Array[Vector2] = [_cell_center(RoomEditor.INITIAL_ROOM_CELLS.position), _editor.get_envelope_origin() - Vector2.ONE]
+
+	for point: Vector2 in points:
+		_enter_build_mode()
+		_touch(FIRST_FINGER, point, true)
+		_touch(FIRST_FINGER, point, false)
+
+		assert_false(_editor.is_building())
+		assert_eq(_editor.rooms.size(), 2)
+		assert_eq(_editor.session.coins, HotelSession.FIRST_NEW_ROOM_PRICE)
+
+
+## Il tasto Indietro annulla la costruzione prima di tutto il resto.
+func test_back_cancels_build_mode() -> void:
+	_enter_build_mode()
+
+	assert_true(_editor.handle_back())
+
+	assert_false(_editor.is_building())
+
+
+## Rifiutare un ospite chiude la costruzione: il turno è andato avanti.
+func test_refusing_guest_leaves_build_mode() -> void:
+	_enter_build_mode()
+
+	_editor.refuse_current_guest()
+
+	assert_false(_editor.is_building())
+
+
+## Durante un trascinamento il pulsante Costruisci non fa nulla.
+func test_build_button_ignored_during_drag() -> void:
+	_editor.session.coins = HotelSession.FIRST_NEW_ROOM_PRICE
+	_begin_ceiling_drag()
+
+	_editor.toggle_build_mode()
+
+	assert_false(_editor.is_building())
+	assert_true(_editor.is_dragging())
+
+
+## Allargare una camera deve avvisare l'interfaccia: può occupare l'ultima cella libera.
+func test_applied_drag_notifies_session_changed() -> void:
+	watch_signals(_editor)
+	var handle: Vector2 = _begin_ceiling_drag()
+	_move_finger(FIRST_FINGER, handle + ONE_CELL_UP)
+
+	_touch(FIRST_FINGER, handle + ONE_CELL_UP, false)
+
+	assert_signal_emitted(_editor, "session_changed")

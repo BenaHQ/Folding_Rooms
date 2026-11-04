@@ -5,7 +5,8 @@ extends Control
 ## COSA FA: disegna involucro, griglia e camere, riceve i tocchi e mostra in tempo reale il
 ## risultato previsto, anche sulla camera vicina coinvolta. Al rilascio conferma la modifica
 ## e anima l'assestamento. Mostra gli ospiti: toccando la camera selezionata vi entra l'ospite di
-## turno, e il turno si conclude (D-026).
+## turno, e il turno si conclude (D-026). In modalità costruzione segna le celle libere: toccandone
+## una si compra una nuova camera (D-028).
 ## CHI LA USA: la scena principale main.tscn, che la contiene come nodo figlio.
 ## PERCHÉ È SEPARATA: tiene insieme disegno e tocco. Le regole stanno in Grid e il
 ## calcolo del gesto in RoomDrag, così si possono provare senza grafica. Questa scena
@@ -21,8 +22,10 @@ extends Control
 ## il basso. Le misure della camera sono in pixel a partire dall'angolo in alto a
 ## sinistra dell'involucro, così non dipendono dalla forma dello schermo.
 
-## Lanciato quando la partita cambia: nuovo turno, monete, ospiti.
+## Lanciato quando la partita cambia: nuovo turno, monete, ospiti, camere.
 signal session_changed
+## Lanciato quando la modalità costruzione si attiva o si disattiva.
+signal build_mode_changed
 
 ## Valore di «nessun dito» e di «nessuna maniglia»: gli indici veri partono da zero.
 const NONE: int = -1
@@ -34,6 +37,9 @@ const CELL_SIZE_PIXELS: float = 110.0
 const INITIAL_ROOM_CELLS: Rect2i = Rect2i(2, 4, 2, 2)
 ## Celle della seconda camera all'avvio: tocca la prima, così le due condividono una parete.
 const SECOND_ROOM_CELLS: Rect2i = Rect2i(4, 4, 2, 2)
+## Misura di partenza di una camera appena costruita, come frazione di quella vera: da qui cresce
+## con un rimbalzo. Non parte da zero, perché il disegno ha bisogno di una forma con un'area.
+const NEW_ROOM_START_FRACTION: float = 0.5
 ## Scarto entro cui due lati disegnati contano come lo stesso muro, in pixel.
 const SAME_WALL_TOLERANCE_PIXELS: float = 0.5
 
@@ -118,6 +124,12 @@ const VALID_COLOR: Color = Color(0.09, 0.47, 0.36)
 const INVALID_COLOR: Color = Color(0.72, 0.13, 0.13)
 const STATUS_BACKGROUND_COLOR: Color = Color(1.0, 1.0, 1.0)
 
+## Segno sulle celle libere in modalità costruzione: sfondo, margine dal bordo della cella in pixel
+## e raggio del simbolo «+» in pixel.
+const BUILD_CELL_COLOR: Color = Color(0.09, 0.47, 0.36, 0.14)
+const BUILD_CELL_INSET_PIXELS: float = 8.0
+const BUILD_MARKER_RADIUS_PIXELS: float = 22.0
+
 ## Spessore delle linee principali, in pixel.
 const THICK_LINE_PIXELS: float = 5.0
 ## Spessore delle linee della griglia, in pixel.
@@ -169,6 +181,8 @@ var _shown_earnings: Dictionary[Room, int] = {}
 var _earning_progress: float = 1.0
 ## Chi disegna l'interno e il muro di ogni camera (prova di stile, D-018).
 var _painters: Dictionary[Room, RoomPainter] = {}
+## true se il prossimo tocco serve a scegliere dove costruire una camera.
+var _is_building: bool = false
 
 
 ## Godot chiama _ready() una sola volta, quando il nodo entra nella scena: qui si crea
@@ -212,6 +226,8 @@ func _notification(what: int) -> void:
 func _draw() -> void:
 	var origin: Vector2 = get_envelope_origin()
 	_draw_envelope(origin)
+	if _is_building:
+		_draw_build_cells(origin)
 
 	# Ciò che è disegnato dopo sta sopra: la camera attiva copre la vicina.
 	for other_room: Room in rooms:
@@ -237,6 +253,25 @@ func is_room_selected() -> bool:
 	return _is_room_selected
 
 
+## Restituisce true se il prossimo tocco serve a scegliere dove costruire una camera.
+func is_building() -> bool:
+	return _is_building
+
+
+## Attiva o disattiva la modalità costruzione. Si attiva solo se ora si può costruire. Durante un
+## gesto non fa nulla: un secondo dito sul pulsante non deve interrompere il primo.
+func toggle_build_mode() -> void:
+	if _drag != null or _is_recognizing_gesture:
+		return
+
+	if _is_building:
+		_set_build_mode(false)
+	elif session.can_build_room():
+		# Le maniglie coprirebbero le celle libere vicine alla camera.
+		_set_room_selected(false)
+		_set_build_mode(true)
+
+
 ## Inizia una partita con la fila indicata. Le camere restano come sono.
 func start_session(queue: GuestQueue) -> void:
 	session = HotelSession.new(_grid, queue)
@@ -260,9 +295,14 @@ func restore_session(saved_session: HotelSession) -> void:
 	queue_redraw()
 
 
-## Gestisce il tasto Indietro, che annulla l'azione in corso: prima il gesto, poi la selezione.
-## Restituisce true se c'era qualcosa da annullare, false se il tasto resta da gestire a chi chiama.
+## Gestisce il tasto Indietro, che annulla l'azione in corso: prima la costruzione o il gesto, poi
+## la selezione. Restituisce true se c'era qualcosa da annullare, false se il tasto resta da gestire
+## a chi chiama.
 func handle_back() -> bool:
+	if _is_building:
+		_set_build_mode(false)
+		return true
+
 	if _drag != null or _is_recognizing_gesture:
 		_cancel_drag()
 		return true
@@ -280,6 +320,7 @@ func refuse_current_guest() -> void:
 	if _drag != null:
 		return
 
+	_set_build_mode(false)
 	_apply_turn_report(session.refuse_current_guest(), null)
 
 
@@ -353,6 +394,10 @@ func _handle_touch(touch: InputEventScreenTouch) -> void:
 
 ## Decide che cosa significa un dito appena appoggiato.
 func _handle_press(touch: InputEventScreenTouch) -> void:
+	if _is_building:
+		_handle_build_press(touch.position)
+		return
+
 	var touched_room: Room = _find_room_at(touch.position)
 
 	# Il primo tocco serve solo a selezionare. Il gesto non parte subito, così in futuro un
@@ -377,6 +422,38 @@ func _handle_press(touch: InputEventScreenTouch) -> void:
 		_select_room(touched_room)
 	else:
 		_set_room_selected(false)
+
+
+## Gestisce un tocco in modalità costruzione, che finisce comunque qui. Su una cella libera compra
+## la camera; altrove annulla soltanto. HotelSession decide se si può costruire. point è in pixel.
+func _handle_build_press(point: Vector2) -> void:
+	_set_build_mode(false)
+
+	# floor() arrotonda verso il basso: ogni punto di una cella dà il numero di quella cella, e un
+	# punto a sinistra o sopra l'involucro dà un numero negativo, che le regole rifiutano.
+	var cell: Vector2i = Vector2i(((point - get_envelope_origin()) / CELL_SIZE_PIXELS).floor())
+	var new_room: Room = session.build_room(cell)
+	if new_room == null:
+		return
+
+	_show_room(new_room)
+	_select_room(new_room)
+	session_changed.emit()
+
+	# La camera nasce più piccola, attorno al centro della cella, e cresce con un rimbalzo.
+	var final_rect: Rect2 = _visual_rects[new_room]
+	_visual_rects[new_room] = final_rect.grow(-final_rect.size.x * (1.0 - NEW_ROOM_START_FRACTION) / 2.0)
+	_animate_to_room_shape(SETTLE_SECONDS, Tween.TRANS_ELASTIC)
+
+
+## Attiva o disattiva la modalità costruzione e lo fa sapere all'interfaccia.
+func _set_build_mode(active: bool) -> void:
+	if active == _is_building:
+		return
+
+	_is_building = active
+	build_mode_changed.emit()
+	queue_redraw()
 
 
 ## Prova a far entrare l'ospite di turno nella camera attiva. Se non può, lo scuote: il motivo si
@@ -550,6 +627,8 @@ func _finish_drag() -> void:
 	# TRANS_ELASTIC oscilla come una molla prima di fermarsi; TRANS_BACK torna indietro con
 	# un piccolo rimbalzo. La differenza fa sentire se la modifica è stata accettata.
 	if was_applied:
+		# Allargare una camera può occupare l'ultima cella libera: l'interfaccia deve saperlo.
+		session_changed.emit()
 		_animate_to_room_shape(SETTLE_SECONDS, Tween.TRANS_ELASTIC)
 	else:
 		_animate_to_room_shape(RETURN_SECONDS, Tween.TRANS_BACK)
@@ -671,6 +750,15 @@ func _draw_envelope(origin: Vector2) -> void:
 	var border_color: Color = INVALID_COLOR if is_leaving else ENVELOPE_BORDER_COLOR
 	var border_width: float = THICK_LINE_PIXELS if is_leaving else THIN_LINE_PIXELS
 	draw_rect(Rect2(origin, envelope_size), border_color, false, border_width)
+
+
+## Segna le celle dove si può costruire: uno sfondo e il simbolo «+», così il segno non dipende solo
+## dal colore. Quali celle sono libere lo decide Grid.
+func _draw_build_cells(origin: Vector2) -> void:
+	for cell: Vector2i in _grid.get_free_cells():
+		var rect: Rect2 = Rect2(origin + Vector2(cell) * CELL_SIZE_PIXELS, Vector2.ONE * CELL_SIZE_PIXELS)
+		draw_rect(rect.grow(-BUILD_CELL_INSET_PIXELS), BUILD_CELL_COLOR)
+		GuestPainter.draw_plus_icon(self, rect.get_center(), BUILD_MARKER_RADIUS_PIXELS)
 
 
 ## Disegna una camera con l'eventuale lato incurvato. Interno e muro sono compito del suo

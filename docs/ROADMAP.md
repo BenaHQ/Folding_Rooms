@@ -98,7 +98,8 @@
 - [x] Luce e buio: camere speciali comprate con le monete, pipistrello e ospite vegetale dalla quarta camera (D-032).
 - [x] Paga e permanenza variabili per ogni ospite, entro un margine per specie (D-033).
 - [x] Progressione più semplice: meno arrivi e permanenze più brevi (D-034).
-- [ ] Decisione: prossima funzione tra arredi funzionali, piani e scorrimento, oppure una prima prova con una persona.
+- [x] Piscina: primo servizio comune, con un bonus per chi sta bene nelle camere attaccate (D-036).
+- [ ] Decisione: prossima funzione tra arredi funzionali, piani e scorrimento, ricordi e ospiti di ritorno, oppure una prima prova con una persona.
 
 ## Fase 7 — Prova con i giocatori
 
@@ -111,7 +112,7 @@
 
 **Cancello 2:** Riccardo decide se proseguire, cambiare le regole o tornare indietro.
 
-- [ ] Solo se la prova è positiva: una singola interazione ambientale (concept, sezioni 5 e 11).
+- [x] Una singola interazione ambientale (concept, sezioni 5 e 11): anticipata prima della prova da Riccardo con la piscina (D-036). La prova dovrà dire se regge.
 
 ## Fase 8 — Primi minuti completi
 
@@ -133,7 +134,7 @@
 - [ ] Piani (`Storey`) e scorrimento dell'edificio. Rischio: lo scorrimento non deve confondersi con il trascinamento delle pareti.
 - [ ] Arredi funzionali (`Furniture`) e decorazioni, tenuti separati.
 - [x] Luce e buio: pipistrello e ospite vegetale, anticipati alla fase 6b (D-032).
-- [ ] Servizi comuni (`Facility`), draghetto, ospite acquatico e sinergie.
+- [ ] Servizi comuni (`Facility`), draghetto, ospite acquatico e sinergie. La piscina è anticipata alla fase 6b (D-036).
 - [ ] Ricordi (`Keepsake`), ospiti che tornano e incarichi (`Task`).
 - [ ] Decisioni: numero di specie e monetizzazione, prima di bilanciare l'economia perché la condizionano.
 - [ ] Bilanciamento dell'economia: compensi legati soprattutto al benessere, nessun premio alla densità di ospiti (D-019).

@@ -299,3 +299,24 @@ func test_light_game_resumes_in_scene() -> void:
 
 	assert_eq(editor.rooms[0].lighting, Need.Lighting.DARK)
 	assert_eq(editor.rooms[0].guest.id, GuestQueue.LIGHT_GUESTS[0].id)
+
+
+## Dopo il caricamento la piscina è disegnata con il suo aspetto e il pulsante per comprarla non c'è più.
+func test_pool_is_restored_in_scene() -> void:
+	var first: MainWithoutQuit = _launch()
+	var first_editor: RoomEditor = _editor_of(first)
+	first_editor.session.coins = HotelSession.POOL_PRICE
+	first_editor.session.build_pool(Vector2i(0, 0))
+	first.propagate_notification(NOTIFICATION_APPLICATION_PAUSED)
+
+	var second: MainWithoutQuit = _launch()
+	var editor: RoomEditor = _editor_of(second)
+	var pool: Room = editor.session.get_grid().get_pool()
+
+	assert_not_null(pool)
+	if pool == null:
+		return
+
+	assert_true(editor._painters[pool] is PoolPainter)
+	assert_eq(editor._visual_rects[pool], editor._cells_to_pixels(Rect2i(0, 0, 1, 1)))
+	assert_false((second.get_node("Hud") as Hud)._pool_button.visible)

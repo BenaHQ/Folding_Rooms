@@ -25,7 +25,8 @@ enum Status {
 ## La versione 2 ha aggiunto gli arrivi rimasti nella giornata (D-029).
 ## La versione 3 ha aggiunto la luce delle camere, i lavori (D-032) e i valori propri di ogni
 ## ospite (D-033).
-const FORMAT_VERSION: int = 3
+## La versione 4 ha aggiunto i servizi comuni (D-036).
+const FORMAT_VERSION: int = 4
 ## Nome del campo con la versione del formato.
 const VERSION_KEY: String = "format_version"
 ## Nome del campo con i dati veri e propri.

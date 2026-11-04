@@ -31,6 +31,7 @@ var save_path: String = DEFAULT_SAVE_PATH
 func _ready() -> void:
 	_guest_bar.refuse_pressed.connect(_room_editor.refuse_current_guest)
 	_hud.build_pressed.connect(_room_editor.toggle_build_mode)
+	_hud.pool_pressed.connect(_room_editor.toggle_pool_build_mode)
 	_hud.reset_confirmed.connect(_start_new_game)
 	_hud.lighting_action_chosen.connect(_room_editor.apply_lighting_action)
 	_room_editor.selection_changed.connect(_refresh_interface)
@@ -109,5 +110,6 @@ func _refresh_interface() -> void:
 	var session: HotelSession = _room_editor.session
 	_guest_bar.update_queue(session.get_current_guest(), session.get_upcoming_guests())
 	_hud.update_values(session.coins, session.turns_played, session.arrivals_left)
-	_hud.update_build_button(session.get_new_room_price(), session.can_build_room(), _room_editor.is_building())
+	_hud.update_build_button(session.get_new_room_price(), session.can_build_room(), _room_editor.is_building() and not _room_editor.is_building_pool())
+	_hud.update_pool_button(HotelSession.POOL_PRICE, session.can_build_pool(), _room_editor.is_building_pool(), session.get_grid().get_pool() == null)
 	_hud.update_lighting_panel(_room_editor.get_selected_room(), session)

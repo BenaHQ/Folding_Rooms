@@ -220,3 +220,12 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Decisione:** la proposta della schermata principale usa un rapporto **9:16 verticale**, come richiesto esplicitamente da Riccardo dopo l'esplorazione delle proporzioni iPhone. Il file finale è `immagini/folding_rooms_main_ui_style_v1.png`, 1152×2048 pixel.
 - **Motivo:** definire il formato desiderato per la proposta. Il progetto usa già una base 720×1280 con espansione sugli schermi più lunghi: nessuna impostazione Godot è cambiata.
 - **Deciso da:** Riccardo per il rapporto. Direzione artistica, guida in `docs/STILE.md` e integrazione nel gioco restano da valutare; questa decisione non approva automaticamente lo stile.
+
+## D-036 — 2026-11-04 — Piscina: primo servizio comune con sinergia
+
+- **Decisione:** la piscina è un rettangolo della griglia che si compra con il pulsante apposito per 50 monete, nasce da 1 cella e si deforma e si sposta gratis con gli stessi gesti e le stesse regole delle camere, comprese le spinte. Ogni ospite che sta bene in una camera con una parete in comune con la piscina paga 3 monete in più a fine giornata; un angolo non basta, e chi è stipato, in una camera troppo grande o con la luce sbagliata non riceve nulla. Sulla camera attaccata compare l'icona delle onde: con «+3», barrata se l'ospite non riceve il bonus, sola se la camera è vuota. Durante un gesto l'icona segue il risultato previsto.
+- **Motivo:** Riccardo l'ha scelta come prossima funzione tra quelle della scaletta: rende importante dove sta una camera e dà un uso alle monete. Una piscina più lunga tocca più camere, ma toglie loro spazio.
+- **Deciso da:** Riccardo per piscina generica, forma deformabile, prezzo, bonus e limite a chi sta bene. Claude Code per i dettagli, da confermare provando: una sola piscina per hotel (il concept, sezione 5, chiede di verificare prima una sola sinergia), disponibile da subito, nessun consumo del turno, nessun effetto su arrivi, prezzo delle camere e sblocco degli ospiti, nessun effetto se la piscina tocca un'altra camera vuota.
+- **Differenza dalla scaletta:** una interazione era prevista dopo la prova con i giocatori (fase 7, Cancello 2). Riccardo la anticipa, come ha rinviato la prova (D-028).
+- **Formato del salvataggio:** versione 4, senza conversione: i salvataggi precedenti vengono messi da parte.
+- **Bilanciamento non misurato:** la simulazione con il giocatore automatico non è stata rifatta con la piscina.

@@ -15,6 +15,8 @@ extends Control
 
 ## Lanciato quando il giocatore tocca il pulsante Costruisci.
 signal build_pressed
+## Lanciato quando il giocatore tocca il pulsante della piscina.
+signal pool_pressed
 ## Lanciato quando il giocatore conferma di voler ricominciare da zero.
 signal reset_confirmed
 ## Lanciato quando il giocatore sceglie una modifica alla luce. action è una HotelSession.LightingAction.
@@ -38,6 +40,9 @@ const RESET_BUTTON_GAP_PIXELS: float = 4.0
 ## spazio a un numero di turni di due cifre.
 const ARRIVALS_ICON_OFFSET_PIXELS: float = 112.0
 
+## Spazio tra il pannello della luce e il pulsante della piscina, in pixel.
+const POOL_BUTTON_GAP_PIXELS: float = 14.0
+
 ## Le monete da mostrare.
 var _coins: int = 0
 ## I turni da mostrare.
@@ -47,6 +52,8 @@ var _arrivals_left: int = 0
 
 ## Il pulsante per costruire una camera.
 @onready var _build_button: BuildButton = $BuildButton
+## Il pulsante per costruire la piscina.
+@onready var _pool_button: BuildButton = $PoolButton
 ## Il pulsante per ricominciare la partita.
 @onready var _reset_button: ResetButton = $ResetButton
 ## I pulsanti per cambiare la luce della camera selezionata.
@@ -80,6 +87,13 @@ func _ready() -> void:
 	_lighting_panel.offset_top = _reset_button.offset_top
 	_lighting_panel.offset_bottom = _reset_button.offset_bottom
 
+	# Il pulsante della piscina sta tra il pannello della luce e quello per ricominciare.
+	_pool_button.pressed.connect(pool_pressed.emit)
+	_pool_button.offset_left = _lighting_panel.offset_right + POOL_BUTTON_GAP_PIXELS
+	_pool_button.offset_right = _pool_button.offset_left + BuildButton.WIDTH_PIXELS
+	_pool_button.offset_top = _reset_button.offset_top
+	_pool_button.offset_bottom = _reset_button.offset_bottom
+
 
 ## Aggiorna i numeri mostrati.
 func update_values(coins: int, turns: int, arrivals_left: int) -> void:
@@ -93,6 +107,14 @@ func update_values(coins: int, turns: int, arrivals_left: int) -> void:
 ## costruire e is_active se la modalità costruzione è attiva.
 func update_build_button(price: int, can_build: bool, is_active: bool) -> void:
 	_build_button.update_state(price, can_build, is_active)
+
+
+## Aggiorna il pulsante della piscina. price è il prezzo in monete, can_build dice se ora si può
+## costruire, is_active se si sta scegliendo dove metterla e is_available se manca ancora: una volta
+## costruita il pulsante sparisce, e un nodo nascosto non riceve tocchi.
+func update_pool_button(price: int, can_build: bool, is_active: bool, is_available: bool) -> void:
+	_pool_button.visible = is_available
+	_pool_button.update_state(price, can_build, is_active)
 
 
 ## Aggiorna il pannello della luce per la camera selezionata, oppure lo nasconde se room è null.

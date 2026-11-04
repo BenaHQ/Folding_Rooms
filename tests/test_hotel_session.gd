@@ -4,7 +4,7 @@ extends GutTest
 ## COMPORTAMENTO PROTETTO: gli ospiti arrivano uno alla volta. Ospitare o rifiutare conclude il
 ## turno; a ogni turno chi è in camera paga secondo come sta in quel momento e, finita la
 ## permanenza, parte (D-026). Un turno è una giornata con più arrivi, in base alle camere (D-029). La luce di una camera si compra e pesa sul compenso (D-032). Stare comodi rende più che stare stipati (D-019). Le monete comprano
-## nuove camere a prezzo crescente, senza consumare il turno (D-028).
+## nuove camere a prezzo crescente, senza consumare il turno (D-028), e la piscina, che premia chi sta bene nelle camere attaccate (D-036).
 ## CHI LO USA: GUT, lo strumento che esegue i test automatici. Il comando per avviarli è scritto
 ## in docs/STATO.md.
 ## PERCHÉ È SEPARATO: prova un'intera partita senza scene né grafica.
@@ -655,3 +655,158 @@ func test_size_guests_keep_separate_cramped_and_comfortable_sizes() -> void:
 	assert_eq(giraffe.comfortable_min_size, Vector2i(2, 3))
 	assert_eq(snake.enter_size, Vector2i(3, 1))
 	assert_eq(snake.comfortable_min_size, Vector2i(4, 1))
+
+
+## Crea una partita con una giraffa di turno, una camera in cui sta bene e le monete per la piscina.
+## La camera occupa le colonne 2 e 3, accanto alla camera stretta del test.
+func _make_pool_session() -> Dictionary:
+	var comfortable_room: Room = Room.new(Rect2i(2, 0, 2, 3))
+	assert_true(_grid.add_room(comfortable_room))
+	var session: HotelSession = _make_session(GIRAFFE)
+	session.coins = HotelSession.POOL_PRICE
+	return {"session": session, "room": comfortable_room}
+
+
+## La piscina costa il suo prezzo, nasce da 1 cella e non consuma la giornata (D-036).
+func test_pool_costs_coins_and_keeps_the_day_going() -> void:
+	var setup: Dictionary = _make_pool_session()
+	var session: HotelSession = setup["session"]
+	var arrivals_before: int = session.arrivals_left
+
+	var pool: Room = session.build_pool(Vector2i(4, 0))
+
+	assert_eq(pool.cells, Rect2i(4, 0, 1, 1))
+	assert_eq(pool.facility, Room.Facility.POOL)
+	assert_eq(_grid.get_pool(), pool)
+	assert_eq(session.coins, 0)
+	assert_eq(session.turns_played, 0)
+	assert_eq(session.arrivals_left, arrivals_before)
+
+
+## Senza monete, o su una cella occupata, non cambia nulla.
+func test_pool_refused_without_coins_or_on_occupied_cell() -> void:
+	var setup: Dictionary = _make_pool_session()
+	var session: HotelSession = setup["session"]
+
+	assert_null(session.build_pool(Vector2i(2, 0)), "la cella è occupata")
+	assert_eq(session.coins, HotelSession.POOL_PRICE)
+
+	session.coins = HotelSession.POOL_PRICE - 1
+	assert_false(session.can_build_pool())
+	assert_null(session.build_pool(Vector2i(4, 0)))
+	assert_null(_grid.get_pool())
+	assert_eq(session.coins, HotelSession.POOL_PRICE - 1)
+
+
+## Si può costruire una sola piscina, anche avendo le monete per una seconda.
+func test_only_one_pool_can_be_built() -> void:
+	var setup: Dictionary = _make_pool_session()
+	var session: HotelSession = setup["session"]
+	session.coins = 2 * HotelSession.POOL_PRICE
+	assert_not_null(session.build_pool(Vector2i(4, 0)))
+
+	assert_false(session.can_build_pool())
+	assert_null(session.build_pool(Vector2i(5, 0)))
+	assert_eq(session.coins, HotelSession.POOL_PRICE)
+
+
+## Con 3 camere e la piscina si resta a 1 arrivo, allo stesso prezzo delle camere e senza nuove specie:
+## la piscina non è una camera in più.
+func test_pool_does_not_count_as_room() -> void:
+	assert_true(_grid.add_room(Room.new(Rect2i(2, 0, 1, 1))))
+	assert_true(_grid.add_room(Room.new(Rect2i(3, 0, 1, 1))))
+	var queue: GuestQueue = GuestQueue.new(GuestQueue.PROTOTYPE_GUESTS, TEST_SEED, GuestQueue.LIGHT_GUESTS)
+	var session: HotelSession = HotelSession.new(_grid, queue)
+	session.coins = HotelSession.POOL_PRICE
+	var price_before: int = session.get_new_room_price()
+
+	assert_not_null(session.build_pool(Vector2i(4, 0)))
+	session.refuse_current_guest()
+
+	assert_eq(session.get_daily_arrivals(), 1)
+	assert_eq(session.get_new_room_price(), price_before)
+	for guest: Guest in queue.peek(GuestQueue.PROTOTYPE_GUESTS.size() * BAGS_TO_CHECK):
+		for late_guest: Guest in GuestQueue.LIGHT_GUESTS:
+			assert_ne(guest.id, late_guest.id)
+
+
+## La piscina non accoglie nessuno, nemmeno se è abbastanza grande, e non ha modifiche alla luce.
+func test_pool_hosts_nobody_and_has_no_lighting_actions() -> void:
+	var setup: Dictionary = _make_pool_session()
+	var session: HotelSession = setup["session"]
+	session.coins = HotelSession.POOL_PRICE + HotelSession.SPECIAL_ROOM_PRICE
+	var pool: Room = session.build_pool(Vector2i(4, 0))
+	assert_true(_grid.resize_room(pool, Room.MovableSide.FLOOR, 2).is_valid())
+	assert_true(_grid.resize_room(pool, Room.MovableSide.RIGHT_WALL, 1).is_valid())
+
+	assert_null(session.host_current_guest(pool))
+	assert_null(pool.guest)
+	assert_eq(session.get_lighting_actions(pool), [] as Array[HotelSession.LightingAction])
+	assert_false(session.apply_lighting_action(pool, HotelSession.LightingAction.MAKE_DARK))
+	assert_eq(session.coins, HotelSession.SPECIAL_ROOM_PRICE)
+
+
+## Chi sta bene in una camera attaccata alla piscina paga il bonus a fine giornata.
+func test_comfortable_guest_touching_pool_pays_bonus() -> void:
+	var setup: Dictionary = _make_pool_session()
+	var session: HotelSession = setup["session"]
+	var room: Room = setup["room"]
+	session.build_pool(Vector2i(4, 0))
+
+	var report: TurnReport = session.host_current_guest(room)
+
+	assert_eq(report.earnings[room], GIRAFFE.comfortable_pay + HotelSession.POOL_DAILY_BONUS)
+	assert_eq(session.coins, GIRAFFE.comfortable_pay + HotelSession.POOL_DAILY_BONUS)
+
+
+## Chi è stipato non riceve il bonus, anche se è attaccato: conviene ancora la camera su misura (D-019).
+func test_cramped_guest_touching_pool_gets_no_bonus() -> void:
+	var session: HotelSession = _make_session(GIRAFFE)
+	session.coins = HotelSession.POOL_PRICE
+	session.build_pool(Vector2i(1, 0))
+
+	var report: TurnReport = session.host_current_guest(_narrow_room)
+
+	assert_eq(report.earnings[_narrow_room], GIRAFFE.uncomfortable_pay)
+
+
+## La luce sbagliata toglie il bonus come ogni altro disagio.
+func test_wrong_light_touching_pool_gets_no_bonus() -> void:
+	var session: HotelSession = _make_session(BAT)
+	session.coins = HotelSession.POOL_PRICE
+	session.build_pool(Vector2i(1, 0))
+
+	var report: TurnReport = session.host_current_guest(_narrow_room)
+
+	assert_eq(report.earnings[_narrow_room], BAT.uncomfortable_pay)
+
+
+## Una piscina lontana, o che tocca la camera solo in un angolo, non dà il bonus.
+func test_pool_away_or_on_corner_gives_no_bonus() -> void:
+	for pool_cell: Vector2i in [Vector2i(5, 5), Vector2i(4, 3)]:
+		before_each()
+		var setup: Dictionary = _make_pool_session()
+		var session: HotelSession = setup["session"]
+		var room: Room = setup["room"]
+		session.build_pool(pool_cell)
+
+		var report: TurnReport = session.host_current_guest(room)
+
+		assert_eq(report.earnings[room], GIRAFFE.comfortable_pay, str(pool_cell))
+
+
+## La posizione conta a fine giornata: spostare o allargare la piscina dà o toglie il bonus, gratis.
+func test_reshaping_pool_changes_bonus_at_day_end() -> void:
+	var setup: Dictionary = _make_pool_session()
+	var session: HotelSession = setup["session"]
+	var room: Room = setup["room"]
+	var pool: Room = session.build_pool(Vector2i(5, 5))
+
+	# Il tetto si alza dalla riga 5 alla riga 2, poi la parete sinistra arriva a toccare la camera.
+	assert_true(_grid.resize_room(pool, Room.MovableSide.CEILING, -3).is_valid())
+	assert_true(_grid.resize_room(pool, Room.MovableSide.LEFT_WALL, -1).is_valid())
+
+	var report: TurnReport = session.host_current_guest(room)
+
+	assert_eq(pool.cells, Rect2i(4, 2, 2, 4))
+	assert_eq(report.earnings[room], GIRAFFE.comfortable_pay + HotelSession.POOL_DAILY_BONUS)

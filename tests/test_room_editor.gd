@@ -899,3 +899,76 @@ func test_room_under_works_refuses_guest() -> void:
 
 	assert_null(_editor.room.guest)
 	assert_eq(_editor.session.turns_played, 0)
+
+
+## Dà le monete per la piscina e la costruisce nella cella indicata, con il tocco vero.
+func _build_pool_at(cell: Vector2i) -> Room:
+	_editor.session.coins = HotelSession.POOL_PRICE
+	_editor.toggle_pool_build_mode()
+	assert_true(_editor.is_building_pool())
+	_touch(FIRST_FINGER, _cell_center(cell), true)
+	_touch(FIRST_FINGER, _cell_center(cell), false)
+	return _editor.session.get_grid().get_pool()
+
+
+## Si compra la piscina come una camera: un tocco sul pulsante, uno sulla cella. Nasce selezionata, così
+## si può allargare subito.
+func test_tap_on_free_cell_builds_pool() -> void:
+	var pool: Room = _build_pool_at(Vector2i(0, 7))
+
+	assert_not_null(pool)
+	assert_false(_editor.is_building())
+	assert_eq(_editor.room, pool)
+	assert_true(_editor.is_room_selected())
+	assert_true(_editor._painters[pool] is PoolPainter)
+	assert_eq(_editor.session.coins, 0)
+	await wait_seconds(RoomEditor.SETTLE_SECONDS + ANIMATION_MARGIN_SECONDS)
+
+
+## Passando da una costruzione all'altra resta attiva l'ultima scelta, senza spendere nulla.
+func test_build_mode_switches_between_room_and_pool() -> void:
+	_editor.session.coins = HotelSession.POOL_PRICE
+	_editor.toggle_build_mode()
+	assert_false(_editor.is_building_pool())
+
+	_editor.toggle_pool_build_mode()
+	assert_true(_editor.is_building_pool())
+
+	_editor.toggle_pool_build_mode()
+	assert_false(_editor.is_building())
+	assert_eq(_editor.session.coins, HotelSession.POOL_PRICE)
+
+
+## Senza monete la piscina non si può scegliere.
+func test_pool_build_mode_needs_coins() -> void:
+	_editor.toggle_pool_build_mode()
+
+	assert_false(_editor.is_building())
+
+
+## Toccando la piscina non entra nessuno e l'ospite di turno non vi compare in anteprima.
+func test_tap_on_pool_hosts_nobody() -> void:
+	var pool: Room = _build_pool_at(Vector2i(0, 7))
+	await wait_seconds(RoomEditor.SETTLE_SECONDS + ANIMATION_MARGIN_SECONDS)
+	var guest_before: Guest = _editor.session.get_current_guest()
+
+	assert_null(_editor._get_shown_guest(pool))
+	_tap_center_of_active_room()
+
+	assert_null(pool.guest)
+	assert_eq(_editor.session.get_current_guest(), guest_before)
+
+
+## La piscina si sposta dal centro con lo stesso gesto delle camere.
+func test_pool_moves_with_the_room_gesture() -> void:
+	var pool: Room = _build_pool_at(Vector2i(0, 7))
+	await wait_seconds(RoomEditor.SETTLE_SECONDS + ANIMATION_MARGIN_SECONDS)
+	var start: Vector2 = _cell_center(Vector2i(0, 7))
+	var target: Vector2 = _cell_center(Vector2i(0, 5))
+
+	_touch(FIRST_FINGER, start, true)
+	_move_finger(FIRST_FINGER, target)
+	_touch(FIRST_FINGER, target, false)
+
+	assert_eq(pool.cells, Rect2i(0, 5, 1, 1))
+	await wait_seconds(RoomEditor.SETTLE_SECONDS + ANIMATION_MARGIN_SECONDS)

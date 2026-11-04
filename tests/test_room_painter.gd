@@ -97,3 +97,27 @@ func test_tile_uvs_are_fixed_to_the_envelope() -> void:
 
 	assert_almost_eq(uvs[0].x, 2.0, TOLERANCE)
 	assert_almost_eq(uvs[0].y, 2.0, TOLERANCE)
+
+
+## Le onde della piscina non si stirano: una piscina più grande ha più file, alla stessa distanza, e
+## restano tutte dentro il rettangolo. Le file già presenti non si muovono quando si allarga.
+func test_pool_waves_repeat_instead_of_stretching() -> void:
+	var origin: Vector2 = Vector2(30.0, 100.0)
+	var small: Rect2 = Rect2(origin, Vector2(110.0, 110.0))
+	var large: Rect2 = Rect2(origin, Vector2(110.0, 330.0))
+
+	var small_lines: Array[PackedVector2Array] = PoolPainter.get_wave_lines(small, origin)
+	var large_lines: Array[PackedVector2Array] = PoolPainter.get_wave_lines(large, origin)
+
+	assert_gt(small_lines.size(), 0)
+	assert_gt(large_lines.size(), small_lines.size())
+	for index: int in small_lines.size():
+		assert_eq(small_lines[index], large_lines[index])
+	for line: PackedVector2Array in large_lines:
+		for point: Vector2 in line:
+			assert_true(large.has_point(point))
+
+
+## Una piscina minuscola, come all'inizio della sua comparsa, non deve dare errori di disegno.
+func test_tiny_pool_has_no_waves() -> void:
+	assert_eq(PoolPainter.get_wave_lines(Rect2(0.0, 0.0, 10.0, 10.0), Vector2.ZERO).size(), 0)

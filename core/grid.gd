@@ -22,6 +22,9 @@ extends RefCounted
 ## OSPITI (decisione D-019): un ospite entra solo se la camera ha la misura per entrare. Una
 ## modifica che lascerebbe fuori un ospite già presente è rifiutata: non viene mai scacciato.
 
+## SERVIZI COMUNI (decisione D-036): la piscina è un rettangolo come le camere. Si deforma, si sposta e
+## spinge con le stesse regole, ma non accoglie ospiti.
+
 ## L'involucro dentro cui devono stare tutte le camere.
 var _envelope: Envelope
 ## Le camere presenti nella griglia. Array[Room] è un elenco che accetta solo camere.
@@ -112,9 +115,10 @@ func move_room(room: Room, offset_cells: Vector2i) -> ResizePreview:
 
 
 ## Fa entrare un ospite in una camera libera e non in lavori, se ci può entrare. La luce non conta: un
-## ospite con la luce sbagliata entra, ma non sta bene (D-032). Restituisce true se è entrato.
+## ospite con la luce sbagliata entra, ma non sta bene (D-032). Un servizio comune non ospita nessuno.
+## Restituisce true se è entrato.
 func assign_guest(guest: Guest, room: Room) -> bool:
-	if room.guest != null or room.is_under_works or guest.need.evaluate(room.cells.size) == Need.Fit.DOES_NOT_FIT:
+	if room.is_facility() or room.guest != null or room.is_under_works or guest.need.evaluate(room.cells.size) == Need.Fit.DOES_NOT_FIT:
 		return false
 
 	room.guest = guest
@@ -131,6 +135,26 @@ func remove_guest(room: Room) -> void:
 ## Restituisce le camere della griglia. L'elenco va solo letto: si aggiunge con add_room().
 func get_rooms() -> Array[Room]:
 	return _rooms
+
+
+## Restituisce solo le camere che possono ospitare, cioè tutte tranne i servizi comuni. È un elenco
+## nuovo a ogni chiamata.
+func get_guest_rooms() -> Array[Room]:
+	var guest_rooms: Array[Room] = []
+	for room: Room in _rooms:
+		if not room.is_facility():
+			guest_rooms.append(room)
+
+	return guest_rooms
+
+
+## Restituisce la piscina dell'hotel, oppure null se non è ancora stata costruita.
+func get_pool() -> Room:
+	for room: Room in _rooms:
+		if room.facility == Room.Facility.POOL:
+			return room
+
+	return null
 
 
 ## Restituisce tutte le celle dell'involucro, come rettangolo in celle.

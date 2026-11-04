@@ -24,6 +24,12 @@ enum MovableSide {
 	FLOOR, ## Pavimento, cioè il lato in basso.
 }
 
+## I servizi comuni che possono occupare un rettangolo della griglia al posto di una camera per ospiti.
+enum Facility {
+	NONE, ## Nessun servizio: è una camera normale, che ospita.
+	POOL, ## La piscina: dà un bonus alle camere attaccate (D-036).
+}
+
 ## Larghezza minima di una camera, in celle (decisione D-010).
 const MIN_WIDTH_CELLS: int = 1
 ## Altezza minima di una camera, in celle (decisione D-010).
@@ -40,11 +46,33 @@ var turns_left: int = 0
 var lighting: Need.Lighting = Need.Lighting.NORMAL
 ## true se la camera sta tornando normale gratis: fino a fine giornata non può ospitare nessuno.
 var is_under_works: bool = false
+## Il servizio comune che occupa questo rettangolo. Un servizio si sposta e si deforma come una camera,
+## con le stesse regole di Grid, ma non ospita nessuno e non conta tra le camere dell'hotel.
+var facility: Facility = Facility.NONE
 
 
-## Crea una camera che occupa il rettangolo indicato, in celle.
-func _init(room_cells: Rect2i) -> void:
+## Crea una camera che occupa il rettangolo indicato, in celle. room_facility indica il servizio comune
+## che contiene, se ne contiene uno.
+func _init(room_cells: Rect2i, room_facility: Facility = Facility.NONE) -> void:
 	cells = room_cells
+	facility = room_facility
+
+
+## Restituisce true se due rettangoli di celle si toccano lungo una parete: hanno un lato alla stessa
+## altezza o alla stessa distanza da sinistra, e quel lato è in comune per almeno una cella. Due
+## rettangoli che si toccano solo in un angolo non hanno una parete in comune e non contano.
+static func cells_touch(first: Rect2i, second: Rect2i) -> bool:
+	var share_column_line: bool = first.end.x == second.position.x or second.end.x == first.position.x
+	var share_row_line: bool = first.end.y == second.position.y or second.end.y == first.position.y
+	# Due intervalli hanno un tratto in comune se ognuno comincia prima che l'altro finisca.
+	var rows_overlap: bool = first.position.y < second.end.y and second.position.y < first.end.y
+	var columns_overlap: bool = first.position.x < second.end.x and second.position.x < first.end.x
+	return (share_column_line and rows_overlap) or (share_row_line and columns_overlap)
+
+
+## Restituisce true se questo rettangolo è un servizio comune e non una camera per ospiti.
+func is_facility() -> bool:
+	return facility != Facility.NONE
 
 
 ## Restituisce true se un rettangolo ha le misure minime di una camera. Il parametro

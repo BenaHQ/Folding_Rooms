@@ -21,6 +21,11 @@ anchor_left = 0.5
 anchor_right = 0.5
 script = ExtResource("2_build_button")
 
+[node name="PoolButton" type="Control" parent="."]
+layout_mode = 1
+script = ExtResource("2_build_button")
+shows_pool = true
+
 [node name="ResetButton" type="Control" parent="."]
 layout_mode = 1
 anchor_left = 1.0

@@ -450,3 +450,79 @@ func test_invalid_guest_values_are_rejected() -> void:
 	var zero_stay: Dictionary = _valid_data()
 	zero_stay["queue"]["line"][0]["stay_turns"] = 0.0
 	_assert_rejected(zero_stay, "Permanenza di zero turni")
+
+
+## Restituisce una copia dei dati validi con in più una camera descritta da entry.
+func _data_with_room(entry: Dictionary) -> Dictionary:
+	var data: Dictionary = VALID_DATA.duplicate(true)
+	(data["rooms"] as Array).append(entry)
+	return data
+
+
+## La piscina torna uguale, con forma e posizione, e continua a dare il bonus (D-036).
+func test_pool_survives_saving() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	var room: Room = Room.new(Rect2i(0, 0, 2, 3))
+	assert_true(grid.add_room(room))
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new([GIRAFFE] as Array[Guest], TEST_SEED))
+	session.coins = HotelSession.POOL_PRICE
+	var pool: Room = session.build_pool(Vector2i(2, 0))
+	assert_true(grid.resize_room(pool, Room.MovableSide.FLOOR, 1).is_valid())
+
+	var data: Dictionary = JSON.parse_string(JSON.stringify(session.to_data()))
+	var restored: HotelSession = HotelSession.from_data(data, [GIRAFFE] as Array[Guest])
+
+	assert_not_null(restored)
+	if restored == null:
+		return
+
+	var restored_grid: Grid = restored.get_grid()
+	assert_eq(restored_grid.get_pool().cells, Rect2i(2, 0, 1, 2))
+	assert_false(restored.can_build_pool())
+	var restored_room: Room = restored_grid.get_guest_rooms()[0]
+	var report: TurnReport = restored.host_current_guest(restored_room)
+	assert_eq(report.earnings[restored_room], GIRAFFE.comfortable_pay + HotelSession.POOL_DAILY_BONUS)
+
+
+## Una camera normale non ha il campo del servizio: il file resta semplice.
+func test_normal_room_has_no_facility_field() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	assert_true(grid.add_room(Room.new(Rect2i(0, 0, 1, 1))))
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new(SPECIES, TEST_SEED))
+
+	assert_false((session.to_data()["rooms"][0] as Dictionary).has(HotelSession.FACILITY_KEY))
+
+
+## Un servizio scritto male, una seconda piscina o una piscina che le regole non permetterebbero rendono
+## il file non valido.
+func test_invalid_pool_is_rejected() -> void:
+	var pool: Dictionary = {"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0, "lighting": "normal", "facility": "pool"}
+	assert_not_null(HotelSession.from_data(_data_with_room(pool), SPECIES), "una piscina valida è accettata")
+
+	for bad_name: Variant in ["spa", 1.0, null, true, []]:
+		var unknown: Dictionary = pool.duplicate()
+		unknown["facility"] = bad_name
+		assert_null(HotelSession.from_data(_data_with_room(unknown), SPECIES), str(bad_name))
+
+	var dark: Dictionary = pool.duplicate()
+	dark["lighting"] = "dark"
+	assert_null(HotelSession.from_data(_data_with_room(dark), SPECIES), "la piscina non ha luce speciale")
+
+	var with_guest: Dictionary = pool.duplicate()
+	with_guest["guest"] = {"id": "dormouse", "stay_turns": 2.0, "comfortable_pay": 6.0, "uncomfortable_pay": 3.0}
+	with_guest["turns_left"] = 1.0
+	assert_null(HotelSession.from_data(_data_with_room(with_guest), SPECIES), "la piscina non ospita")
+
+	var two_pools: Dictionary = _data_with_room(pool)
+	var second: Dictionary = pool.duplicate()
+	second["x"] = 1.0
+	(two_pools["rooms"] as Array).append(second)
+	assert_null(HotelSession.from_data(two_pools, SPECIES), "una piscina sola")
+
+
+## Un hotel con la sola piscina non potrebbe accogliere nessuno.
+func test_game_with_only_a_pool_is_rejected() -> void:
+	var data: Dictionary = VALID_DATA.duplicate(true)
+	data["rooms"] = [{"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0, "lighting": "normal", "facility": "pool"}]
+
+	assert_null(HotelSession.from_data(data, SPECIES))

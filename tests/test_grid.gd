@@ -449,3 +449,51 @@ func test_guest_moves_with_room() -> void:
 
 	assert_eq(room.guest, guest)
 	assert_eq(room.turns_left, guest.stay_turns)
+
+
+## Due rettangoli si toccano solo se hanno un tratto di parete in comune: un angolo non basta (D-036).
+func test_cells_touch_needs_a_shared_wall() -> void:
+	var cells: Rect2i = Rect2i(2, 2, 2, 2)
+
+	assert_true(Room.cells_touch(cells, Rect2i(4, 3, 1, 1)), "a destra")
+	assert_true(Room.cells_touch(cells, Rect2i(1, 2, 1, 1)), "a sinistra")
+	assert_true(Room.cells_touch(cells, Rect2i(3, 1, 3, 1)), "sopra")
+	assert_true(Room.cells_touch(cells, Rect2i(0, 4, 3, 1)), "sotto")
+	assert_false(Room.cells_touch(cells, Rect2i(4, 4, 1, 1)), "solo l'angolo")
+	assert_false(Room.cells_touch(cells, Rect2i(5, 2, 1, 2)), "una colonna vuota in mezzo")
+	assert_false(Room.cells_touch(cells, Rect2i(4, 0, 1, 2)), "stessa linea, nessun tratto in comune")
+
+
+## Un servizio comune sta nella griglia e blocca lo spazio, ma non è tra le camere che ospitano.
+func test_pool_is_listed_apart_from_guest_rooms() -> void:
+	var setup: Dictionary = _make_grid_with_room(CENTER_ROOM_CELLS)
+	var grid: Grid = setup["grid"]
+	var room: Room = setup["room"]
+	assert_null(grid.get_pool())
+
+	var pool: Room = Room.new(Rect2i(0, 0, 1, 1), Room.Facility.POOL)
+	assert_true(grid.add_room(pool))
+
+	assert_eq(grid.get_pool(), pool)
+	assert_eq(grid.get_guest_rooms(), [room] as Array[Room])
+	assert_eq(grid.get_rooms().size(), 2)
+	assert_false(grid.get_free_cells().has(Vector2i(0, 0)))
+	assert_false(grid.add_room(Room.new(Rect2i(0, 0, 1, 1))), "la cella della piscina non è libera")
+
+
+## La piscina segue le stesse regole delle camere: può allargarsi spingendo una vicina, e fermarsi al
+## bordo dell'involucro.
+func test_pool_reshapes_with_the_room_rules() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	var pool: Room = Room.new(Rect2i(0, 0, 1, 1), Room.Facility.POOL)
+	var neighbor: Room = Room.new(Rect2i(1, 0, 2, 1))
+	assert_true(grid.add_room(pool))
+	assert_true(grid.add_room(neighbor))
+
+	assert_true(grid.resize_room(pool, Room.MovableSide.RIGHT_WALL, 1).is_valid())
+	assert_eq(pool.cells, Rect2i(0, 0, 2, 1))
+	assert_eq(neighbor.cells, Rect2i(2, 0, 1, 1))
+
+	assert_eq(grid.resize_room(pool, Room.MovableSide.LEFT_WALL, -1).rejection, ResizePreview.Rejection.OUTSIDE_ENVELOPE)
+	assert_true(grid.move_room(pool, Vector2i(0, 3)).is_valid())
+	assert_eq(pool.cells, Rect2i(0, 3, 2, 1))

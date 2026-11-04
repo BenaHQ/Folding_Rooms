@@ -1,14 +1,16 @@
 class_name BuildButton
 extends Control
-## Il pulsante Costruisci: mostra il prezzo della prossima camera e attiva la costruzione.
+## Un pulsante per costruire: mostra il prezzo di ciò che si compra e attiva la costruzione.
 ##
-## COSA FA: disegna il pulsante nei suoi tre stati e avvisa quando viene toccato. Non contiene
-## regole: se si possa davvero costruire lo decide HotelSession (D-028).
+## COSA FA: disegna il pulsante nei suoi tre stati e avvisa quando viene toccato. Serve sia per le
+## camere sia per la piscina. Non contiene regole: se si possa davvero costruire lo decide
+## HotelSession (D-028, D-036).
 ## CHI LA USA: Hud, che lo contiene come nodo figlio e gli passa i valori.
 ## PERCHÉ È SEPARATA: Hud lascia passare i tocchi verso le camere, mentre il pulsante deve riceverli.
 ## Essendo un nodo a parte, ferma solo i tocchi caduti dentro il suo rettangolo.
 ## NOTA GDSCRIPT: «extends Control» indica un nodo d'interfaccia, che riceve i tocchi in _gui_input().
-## Un «segnale» è un avviso che un nodo lancia a chi si è collegato. _draw() disegna il nodo. I
+## Un «segnale» è un avviso che un nodo lancia a chi si è collegato. @export rende una variabile
+## impostabile dal file della scena. _draw() disegna il nodo. I
 ## simboli e i numeri non si traducono, quindi non serve tr().
 ## COORDINATE: pixel del nodo; (0, 0) è il suo angolo in alto a sinistra.
 
@@ -38,6 +40,9 @@ const ACTIVE_BORDER_PIXELS: int = 6
 ## Spessore della barra sul simbolo quando non si può costruire, in pixel.
 const STRIKE_PIXELS: float = 6.0
 
+## true se il pulsante compra la piscina: al posto del «+» mostra le onde.
+@export var shows_pool: bool = false
+
 ## Il prezzo da mostrare, in monete.
 var _price: int = 0
 ## true se ora si può costruire.
@@ -55,7 +60,7 @@ func _gui_input(event: InputEvent) -> void:
 
 
 ## Godot chiama _draw() per disegnare il nodo. Lo stato si legge dal simbolo, non solo dal colore:
-## «+» si può costruire, «+» barrato non si può, «X» annulla la costruzione in corso.
+## «+» o le onde si può costruire, gli stessi barrati non si può, «X» annulla la costruzione in corso.
 func _draw() -> void:
 	var background: StyleBoxFlat = StyleBoxFlat.new()
 	background.bg_color = GuestBar.CARD_COLOR if _can_build or _is_active else GuestBar.UPCOMING_CARD_COLOR
@@ -69,7 +74,10 @@ func _draw() -> void:
 	if _is_active:
 		GuestPainter.draw_fit_icon(self, Need.Fit.DOES_NOT_FIT, icon_center, ACTION_ICON_RADIUS_PIXELS)
 	else:
-		GuestPainter.draw_plus_icon(self, icon_center, ACTION_ICON_RADIUS_PIXELS)
+		if shows_pool:
+			GuestPainter.draw_pool_icon(self, icon_center, ACTION_ICON_RADIUS_PIXELS)
+		else:
+			GuestPainter.draw_plus_icon(self, icon_center, ACTION_ICON_RADIUS_PIXELS)
 		if not _can_build:
 			var strike: Vector2 = Vector2(1.0, -1.0) * ACTION_ICON_RADIUS_PIXELS * 0.7
 			draw_line(icon_center - strike, icon_center + strike, GuestPainter.INK_COLOR, STRIKE_PIXELS, true)

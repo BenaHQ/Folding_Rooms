@@ -13,6 +13,9 @@ extends RefCounted
 ## monete, sempre di più, e non consuma il turno. Il prezzo si ricava da quante camere esistono.
 ## LUCE (D-032): una camera normale si può rendere buia o dotare di lampade speciali, a pagamento. Per
 ## tornare normale si paga, oppure è gratis ma resta in lavori fino a fine giornata.
+## PISCINA (D-036): un servizio comune che si compra una sola volta, nasce da 1 cella e si allarga gratis
+## con il gesto, sottraendo spazio alle camere. Chi sta bene in una camera attaccata paga di più. Non
+## conta tra le camere: non cambia gli arrivi, il prezzo delle camere né lo sblocco degli ospiti.
 ## NOTA GDSCRIPT: «extends RefCounted» crea un oggetto che non compare nella scena.
 
 ## Le modifiche alla luce di una camera che il giocatore può scegliere.
@@ -42,6 +45,12 @@ const SPECIAL_ROOM_PRICE: int = 10
 const RESTORE_ROOM_PRICE: int = 20
 ## Da quante camere arrivano pipistrello e ospite vegetale (D-032).
 const LATE_GUESTS_MIN_ROOMS: int = 4
+## Prezzo della piscina, in monete: un acquisto dopo le prime camere.
+const POOL_PRICE: int = 50
+## Monete in più al giorno per ogni ospite che sta bene in una camera attaccata alla piscina.
+const POOL_DAILY_BONUS: int = 3
+## Misure di una piscina appena costruita, in celle.
+const NEW_POOL_SIZE_CELLS: Vector2i = Vector2i.ONE
 ## Nomi dei campi nel salvataggio.
 const COINS_KEY: String = "coins"
 const TURNS_PLAYED_KEY: String = "turns_played"
@@ -56,12 +65,18 @@ const GUEST_KEY: String = "guest"
 const TURNS_LEFT_KEY: String = "turns_left"
 const LIGHTING_KEY: String = "lighting"
 const UNDER_WORKS_KEY: String = "under_works"
+const FACILITY_KEY: String = "facility"
 ## Come si scrive ogni luce nel salvataggio: parole e non numeri, così riordinare l'elenco delle luci
 ## non cambia il significato dei salvataggi esistenti.
 const LIGHTING_NAMES: Dictionary[Need.Lighting, String] = {
 	Need.Lighting.NORMAL: "normal",
 	Need.Lighting.DARK: "dark",
 	Need.Lighting.BRIGHT: "bright",
+}
+## Come si scrive ogni servizio comune nel salvataggio, per lo stesso motivo. Le camere normali non hanno
+## questo campo.
+const FACILITY_NAMES: Dictionary[Room.Facility, String] = {
+	Room.Facility.POOL: "pool",
 }
 
 ## Le monete guadagnate finora.
@@ -99,7 +114,7 @@ func get_upcoming_guests() -> Array[Guest]:
 ## arrotondato per eccesso, e almeno uno. Una camera costruita durante la giornata vale dalla
 ## giornata dopo, perché questo numero si legge solo all'inizio.
 func get_daily_arrivals() -> int:
-	return maxi(ceili(float(_grid.get_rooms().size()) / ROOMS_PER_DAILY_ARRIVAL), 1)
+	return maxi(ceili(float(_grid.get_guest_rooms().size()) / ROOMS_PER_DAILY_ARRIVAL), 1)
 
 
 ## Prova a far entrare l'ospite di turno in una camera. Se non può entrare restituisce null e non
@@ -120,7 +135,7 @@ func refuse_current_guest() -> TurnReport:
 ## NEW_ROOM_PRICE_STEP in più per ogni camera già costruita. Non modifica nulla.
 func get_new_room_price() -> int:
 	# maxi() sceglie il maggiore: una griglia con meno camere iniziali non dà uno sconto.
-	var built_rooms: int = maxi(_grid.get_rooms().size() - STARTING_ROOMS, 0)
+	var built_rooms: int = maxi(_grid.get_guest_rooms().size() - STARTING_ROOMS, 0)
 	return FIRST_NEW_ROOM_PRICE + NEW_ROOM_PRICE_STEP * built_rooms
 
 
@@ -146,11 +161,43 @@ func build_room(cell: Vector2i) -> Room:
 	return new_room
 
 
+## Restituisce true se ora si può costruire la piscina: non ce n'è già una, le monete bastano e c'è almeno
+## una cella libera.
+func can_build_pool() -> bool:
+	return _grid.get_pool() == null and coins >= POOL_PRICE and not _grid.get_free_cells().is_empty()
+
+
+## Costruisce la piscina nella cella indicata, in celle, e ne sottrae il prezzo. Il turno continua.
+## Restituisce la piscina, oppure null se non si può: in quel caso non cambia nulla.
+func build_pool(cell: Vector2i) -> Room:
+	if not can_build_pool():
+		return null
+
+	var pool: Room = Room.new(Rect2i(cell, NEW_POOL_SIZE_CELLS), Room.Facility.POOL)
+	if not _grid.add_room(pool):
+		return null
+
+	coins -= POOL_PRICE
+	return pool
+
+
+## Restituisce le monete in più che rende la piscina a un ospite: POOL_DAILY_BONUS se sta bene e la sua
+## camera è attaccata alla piscina, altrimenti 0 (D-036). fit dice come sta, room_cells e pool_cells sono
+## le celle di camera e piscina. Riceve le celle invece di leggerle, così l'anteprima può chiedere il
+## risultato di un gesto non ancora concluso.
+static func get_pool_bonus(fit: Need.Fit, room_cells: Rect2i, pool_cells: Rect2i) -> int:
+	if fit == Need.Fit.COMFORTABLE and Room.cells_touch(room_cells, pool_cells):
+		return POOL_DAILY_BONUS
+
+	return 0
+
+
 ## Restituisce le modifiche alla luce possibili ora per una camera, anche se le monete non bastano.
 ## Un ospite non impedisce di cambiare luce, per rimediare a una scelta; impedisce solo i lavori,
 ## perché una camera in lavori non può ospitare nessuno.
 func get_lighting_actions(room: Room) -> Array[LightingAction]:
-	if room.is_under_works:
+	# Un servizio comune non ospita nessuno: non avrebbe senso cambiargli la luce.
+	if room.is_facility() or room.is_under_works:
 		return []
 
 	if room.lighting == Need.Lighting.NORMAL:
@@ -231,6 +278,10 @@ static func from_data(data: Dictionary, species: Array[Guest], late_species: Arr
 		if not entry is Dictionary or not _add_room_from_data(grid, entry, species + late_species):
 			return null
 
+	# Un hotel con la sola piscina non potrebbe accogliere nessun ospite: la partita non andrebbe avanti.
+	if grid.get_guest_rooms().is_empty():
+		return null
+
 	var queue: GuestQueue = GuestQueue.from_data(queue_data, species, late_species)
 	var saved_coins: int = SaveFile.read_count(data, COINS_KEY)
 	var saved_turns: int = SaveFile.read_count(data, TURNS_PLAYED_KEY)
@@ -259,6 +310,9 @@ func _room_to_data(room: Room) -> Dictionary:
 	if room.is_under_works:
 		entry[UNDER_WORKS_KEY] = true
 
+	if room.is_facility():
+		entry[FACILITY_KEY] = FACILITY_NAMES[room.facility]
+
 	if room.guest != null:
 		entry[GUEST_KEY] = room.guest.to_data()
 		entry[TURNS_LEFT_KEY] = room.turns_left
@@ -284,7 +338,7 @@ static func _add_room_from_data(grid: Grid, entry: Dictionary, species: Array[Gu
 	# find_key() cerca la chiave con quel valore, e dà null se non c'è: la parola è sconosciuta. Accetta
 	# solo testi, perché l'elenco è fatto di testi: per questo il tipo si controlla prima.
 	var lighting: Variant = LIGHTING_NAMES.find_key(lighting_name)
-	if lighting == null or not grid.add_room(room):
+	if lighting == null or not _read_facility_from_data(grid, entry, room, lighting) or not grid.add_room(room):
 		return false
 	room.lighting = lighting
 
@@ -309,10 +363,30 @@ static func _add_room_from_data(grid: Grid, entry: Dictionary, species: Array[Gu
 	return true
 
 
+## Legge dal salvataggio il servizio comune di una camera, se ce n'è uno. Restituisce false se il valore
+## non è valido, se l'hotel ha già una piscina o se la luce è speciale: un servizio la ha sempre normale.
+static func _read_facility_from_data(grid: Grid, entry: Dictionary, room: Room, lighting: Need.Lighting) -> bool:
+	# Una camera normale non ha questo campo.
+	if not entry.has(FACILITY_KEY):
+		return true
+
+	var facility_name: Variant = entry[FACILITY_KEY]
+	if not facility_name is String:
+		return false
+
+	# Come per la luce, il tipo va controllato prima di find_key().
+	var facility: Variant = FACILITY_NAMES.find_key(facility_name)
+	if facility == null or grid.get_pool() != null or lighting != Need.Lighting.NORMAL:
+		return false
+
+	room.facility = facility
+	return true
+
+
 ## Fa arrivare pipistrello e ospite vegetale, se l'hotel è abbastanza grande. Nessuna camera viene mai
 ## demolita, quindi una volta sbloccati restano.
 func _unlock_late_guests_if_ready() -> void:
-	if _grid.get_rooms().size() >= LATE_GUESTS_MIN_ROOMS:
+	if _grid.get_guest_rooms().size() >= LATE_GUESTS_MIN_ROOMS:
 		_queue.unlock_late_species()
 
 
@@ -332,7 +406,9 @@ func _finish_arrival() -> TurnReport:
 ## del giorno dopo, contando le camere di adesso.
 func _end_turn() -> TurnReport:
 	var report: TurnReport = TurnReport.new()
+	var pool: Room = _grid.get_pool()
 
+	# Una piscina non ha mai un ospite, quindi anche lei viene saltata qui sotto.
 	for room: Room in _grid.get_rooms():
 		if room.guest == null:
 			continue
@@ -340,6 +416,8 @@ func _end_turn() -> TurnReport:
 		# Il compenso dipende da come sta ora: allargare una camera conviene anche dopo (D-026).
 		var fit: Need.Fit = room.guest.need.evaluate_in_room(room.cells.size, room.lighting)
 		var amount: int = room.guest.get_pay(fit)
+		if pool != null:
+			amount += get_pool_bonus(fit, room.cells, pool.cells)
 		report.earnings[room] = amount
 		coins += amount
 

@@ -26,6 +26,10 @@ const MOUTH_OFFSET_PIXELS: float = 7.0
 ## Lato più corto di un corpo su cui il viso ha la misura piena, in pixel: i corpi più piccoli,
 ## come quelli sulle schede, hanno un viso proporzionalmente più piccolo.
 const FACE_REFERENCE_PIXELS: float = 50.0
+## Altezza delle onde nell'icona della piscina e loro metà larghezza, come frazioni del raggio.
+const POOL_ICON_WAVE_ROWS: Array[float] = [-0.25, 0.25]
+const POOL_ICON_WAVE_HEIGHT: float = 0.15
+const POOL_ICON_WAVE_REACH: float = 0.6
 ## Punti usati per disegnare un arco: abbastanza da sembrare curvo.
 const ARC_POINTS: int = 12
 ## Spessore delle linee di viso e icone, in pixel.
@@ -203,6 +207,21 @@ static func draw_plus_icon(canvas: CanvasItem, center: Vector2, radius: float) -
 	var reach: float = radius * 0.55
 	canvas.draw_line(center + Vector2(-reach, 0.0), center + Vector2(reach, 0.0), INK_COLOR, LINE_PIXELS, true)
 	canvas.draw_line(center + Vector2(0.0, -reach), center + Vector2(0.0, reach), INK_COLOR, LINE_PIXELS, true)
+
+
+## Disegna l'icona della piscina: due onde una sopra l'altra.
+static func draw_pool_icon(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	_draw_badge(canvas, center, radius)
+
+	# Le misure sono frazioni del raggio, così le onde crescono con l'icona. sin() sale e scende una
+	# volta quando il suo valore va da 0 a TAU, cioè un giro intero: disegna un'onda.
+	for row_offset: float in POOL_ICON_WAVE_ROWS:
+		var wave: PackedVector2Array = PackedVector2Array()
+		for index: int in ARC_POINTS:
+			var progress: float = float(index) / (ARC_POINTS - 1)
+			var point: Vector2 = Vector2(lerpf(-POOL_ICON_WAVE_REACH, POOL_ICON_WAVE_REACH, progress), row_offset + POOL_ICON_WAVE_HEIGHT * sin(progress * TAU))
+			wave.append(center + point * radius)
+		canvas.draw_polyline(wave, INK_COLOR, LINE_PIXELS / 2.0, true)
 
 
 ## Disegna un viso in un'icona: sorridente se is_happy è true, triste altrimenti.

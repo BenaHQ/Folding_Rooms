@@ -7,7 +7,8 @@ extends Control
 ## risultato previsto, anche sulla camera vicina coinvolta. Al rilascio conferma la modifica
 ## e anima l'assestamento. Mostra gli ospiti: toccando la camera selezionata vi entra l'ospite di
 ## turno (D-026, D-029). In modalità costruzione segna le celle libere: toccandone
-## una si compra una nuova camera (D-028). Disegna la luce di ogni camera (D-032).
+## una si compra una nuova camera (D-028) o la piscina (D-036). Disegna la luce di ogni camera (D-032)
+## e, sulle camere attaccate alla piscina, l'icona del bonus, anche per il risultato di un gesto in corso.
 ## CHI LA USA: la scena principale main.tscn, che la contiene come nodo figlio.
 ## PERCHÉ È SEPARATA: tiene insieme disegno e tocco. Le regole stanno in Grid e il
 ## calcolo del gesto in RoomDrag e RoomMove, così si possono provare senza grafica. Questa scena
@@ -142,6 +143,11 @@ const WORKS_ROOM_TINT: Color = Color(0.45, 0.43, 0.42, 0.55)
 ## Raggio dell'icona della luce nell'angolo in alto a destra di una camera, in pixel.
 const LIGHTING_BADGE_RADIUS_PIXELS: float = 22.0
 
+## Raggio dell'icona della piscina nell'angolo in basso a sinistra di una camera, in pixel.
+const POOL_BADGE_RADIUS_PIXELS: float = 22.0
+## Spessore della barra su quell'icona quando l'ospite non riceve il bonus, in pixel.
+const POOL_BADGE_STRIKE_PIXELS: float = 5.0
+
 ## Spessore delle linee principali, in pixel.
 const THICK_LINE_PIXELS: float = 5.0
 ## Spessore delle linee della griglia, in pixel.
@@ -197,6 +203,8 @@ var _earning_progress: float = 1.0
 var _painters: Dictionary[Room, RoomPainter] = {}
 ## true se il prossimo tocco serve a scegliere dove costruire una camera.
 var _is_building: bool = false
+## Che cosa costruisce quel tocco: NONE per una camera, oppure un servizio comune.
+var _build_facility: Room.Facility = Room.Facility.NONE
 
 
 ## Godot chiama _ready() una sola volta, quando il nodo entra nella scena: qui si crea
@@ -281,18 +289,19 @@ func is_building() -> bool:
 	return _is_building
 
 
-## Attiva o disattiva la modalità costruzione. Si attiva solo se ora si può costruire. Durante un
-## gesto non fa nulla: un secondo dito sul pulsante non deve interrompere il primo.
-func toggle_build_mode() -> void:
-	if _drag != null or _is_recognizing_gesture:
-		return
+## Restituisce true se il prossimo tocco serve a scegliere dove costruire la piscina.
+func is_building_pool() -> bool:
+	return _is_building and _build_facility == Room.Facility.POOL
 
-	if _is_building:
-		_set_build_mode(false)
-	elif session.can_build_room():
-		# Le maniglie coprirebbero le celle libere vicine alla camera.
-		_set_room_selected(false)
-		_set_build_mode(true)
+
+## Attiva o disattiva la costruzione di una camera.
+func toggle_build_mode() -> void:
+	_toggle_build(Room.Facility.NONE, session.can_build_room())
+
+
+## Attiva o disattiva la costruzione della piscina.
+func toggle_pool_build_mode() -> void:
+	_toggle_build(Room.Facility.POOL, session.can_build_pool())
 
 
 ## Ricomincia da zero: solo le camere iniziali, nessuna moneta e una fila nuova. Interrompe il gesto
@@ -409,10 +418,16 @@ func _add_initial_room(cells: Rect2i) -> void:
 
 
 ## Aggiunge una camera già presente nella griglia a quelle disegnate. Le camere si alternano tra due
-## aspetti in base alla loro posizione nell'elenco, così l'aspetto non cambia dopo un salvataggio.
+## aspetti in base alla loro posizione nell'elenco, così l'aspetto non cambia dopo un salvataggio. La
+## piscina ha il suo.
 func _show_room(new_room: Room) -> void:
 	var is_even_position: bool = rooms.size() % 2 == 0
-	_painters[new_room] = RoomPainter.new() if is_even_position else RoomPainter.new(RoomPainter.ROSE_WALLPAPER_LIGHT, RoomPainter.ROSE_WALLPAPER_DARK, RoomPainter.ROSE_WAINSCOT_COLOR)
+	if new_room.is_facility():
+		_painters[new_room] = PoolPainter.new()
+	elif is_even_position:
+		_painters[new_room] = RoomPainter.new()
+	else:
+		_painters[new_room] = RoomPainter.new(RoomPainter.ROSE_WALLPAPER_LIGHT, RoomPainter.ROSE_WALLPAPER_DARK, RoomPainter.ROSE_WAINSCOT_COLOR)
 	_visual_rects[new_room] = _cells_to_pixels(new_room.cells)
 	rooms.append(new_room)
 
@@ -475,14 +490,16 @@ func _handle_press(touch: InputEventScreenTouch) -> void:
 
 
 ## Gestisce un tocco in modalità costruzione, che finisce comunque qui. Su una cella libera compra
-## la camera; altrove annulla soltanto. HotelSession decide se si può costruire. point è in pixel.
+## la camera o la piscina; altrove annulla soltanto. HotelSession decide se si può costruire. point è
+## in pixel.
 func _handle_build_press(point: Vector2) -> void:
+	var is_pool: bool = is_building_pool()
 	_set_build_mode(false)
 
 	# floor() arrotonda verso il basso: ogni punto di una cella dà il numero di quella cella, e un
 	# punto a sinistra o sopra l'involucro dà un numero negativo, che le regole rifiutano.
 	var cell: Vector2i = Vector2i(((point - get_envelope_origin()) / CELL_SIZE_PIXELS).floor())
-	var new_room: Room = session.build_room(cell)
+	var new_room: Room = session.build_pool(cell) if is_pool else session.build_room(cell)
 	if new_room == null:
 		return
 
@@ -496,12 +513,29 @@ func _handle_build_press(point: Vector2) -> void:
 	_animate_to_room_shape(SETTLE_SECONDS, Tween.TRANS_ELASTIC)
 
 
-## Attiva o disattiva la modalità costruzione e lo fa sapere all'interfaccia.
-func _set_build_mode(active: bool) -> void:
-	if active == _is_building:
+## Attiva o disattiva la costruzione di ciò che è indicato da facility. Si attiva solo se can_build è
+## true, e ripremendo il pulsante della stessa costruzione si annulla. Durante un gesto non fa nulla: un
+## secondo dito sul pulsante non deve interrompere il primo.
+func _toggle_build(facility: Room.Facility, can_build: bool) -> void:
+	if _drag != null or _is_recognizing_gesture:
+		return
+
+	if _is_building and _build_facility == facility:
+		_set_build_mode(false)
+	elif can_build:
+		# Le maniglie coprirebbero le celle libere vicine alla camera.
+		_set_room_selected(false)
+		_set_build_mode(true, facility)
+
+
+## Attiva o disattiva la modalità costruzione e lo fa sapere all'interfaccia. facility è ciò che si
+## costruisce: conta solo se active è true.
+func _set_build_mode(active: bool, facility: Room.Facility = Room.Facility.NONE) -> void:
+	if active == _is_building and facility == _build_facility:
 		return
 
 	_is_building = active
+	_build_facility = facility
 	build_mode_changed.emit()
 	queue_redraw()
 
@@ -509,6 +543,10 @@ func _set_build_mode(active: bool) -> void:
 ## Prova a far entrare l'ospite di turno nella camera attiva. Se non può, lo scuote: il motivo si
 ## legge già dalla sua icona. HotelSession decide; questa funzione mostra soltanto il risultato.
 func _try_host_current_guest() -> void:
+	# Toccare un servizio comune non è un tentativo di ospitare: nessuno può entrarci.
+	if room.is_facility():
+		return
+
 	var report: TurnReport = session.host_current_guest(room)
 
 	if report == null:
@@ -568,7 +606,7 @@ func _get_shown_guest(target_room: Room) -> Guest:
 	if target_room.guest != null:
 		return target_room.guest
 
-	if target_room == room and _is_room_selected:
+	if target_room == room and _is_room_selected and not target_room.is_facility():
 		return session.get_current_guest()
 
 	return null
@@ -841,7 +879,10 @@ func _draw_build_cells(origin: Vector2) -> void:
 	for cell: Vector2i in _grid.get_free_cells():
 		var rect: Rect2 = Rect2(origin + Vector2(cell) * CELL_SIZE_PIXELS, Vector2.ONE * CELL_SIZE_PIXELS)
 		draw_rect(rect.grow(-BUILD_CELL_INSET_PIXELS), BUILD_CELL_COLOR)
-		GuestPainter.draw_plus_icon(self, rect.get_center(), BUILD_MARKER_RADIUS_PIXELS)
+		if is_building_pool():
+			GuestPainter.draw_pool_icon(self, rect.get_center(), BUILD_MARKER_RADIUS_PIXELS)
+		else:
+			GuestPainter.draw_plus_icon(self, rect.get_center(), BUILD_MARKER_RADIUS_PIXELS)
 
 
 ## Disegna una camera con l'eventuale lato incurvato. Interno e muro sono compito del suo
@@ -857,6 +898,7 @@ func _draw_room(origin: Vector2, target_room: Room) -> void:
 	_draw_room_guest(rect, target_room)
 	painter.paint_frame(self, outline)
 	_draw_lighting_badge(rect, target_room)
+	_draw_pool_badge(rect, target_room)
 
 	if target_room.guest != null:
 		_draw_turns_badge(rect, target_room.turns_left)
@@ -881,6 +923,37 @@ func _draw_lighting_badge(room_rect: Rect2, target_room: Room) -> void:
 		GuestPainter.draw_works_icon(self, center, LIGHTING_BADGE_RADIUS_PIXELS)
 	elif target_room.lighting != Need.Lighting.NORMAL:
 		GuestPainter.draw_lighting_icon(self, target_room.lighting, center, LIGHTING_BADGE_RADIUS_PIXELS)
+
+
+## Disegna nell'angolo in basso a sinistra l'icona della piscina, se la camera è attaccata: con il bonus
+## accanto se l'ospite sta bene, barrata se non lo riceve, da sola se la camera è vuota e non ci sarebbe
+## nessuno a riceverlo. Usa le celle previste da un gesto in corso, così l'effetto si vede prima di
+## lasciare il dito. Le regole stanno in HotelSession.
+func _draw_pool_badge(room_rect: Rect2, target_room: Room) -> void:
+	var pool: Room = _grid.get_pool()
+	if pool == null or target_room == pool:
+		return
+
+	var room_cells: Rect2i = _get_displayed_cells(target_room)
+	var pool_cells: Rect2i = _get_displayed_cells(pool)
+	if not Room.cells_touch(room_cells, pool_cells):
+		return
+
+	var center: Vector2 = room_rect.position + Vector2(TURNS_BADGE_INSET_PIXELS, room_rect.size.y - TURNS_BADGE_INSET_PIXELS)
+	GuestPainter.draw_pool_icon(self, center, POOL_BADGE_RADIUS_PIXELS)
+
+	var guest: Guest = _get_shown_guest(target_room)
+	if guest == null:
+		return
+
+	var fit: Need.Fit = guest.need.evaluate_in_room(room_cells.size, target_room.lighting)
+	var bonus: int = HotelSession.get_pool_bonus(fit, room_cells, pool_cells)
+	if bonus > 0:
+		var text_position: Vector2 = center + Vector2(POOL_BADGE_RADIUS_PIXELS + TURNS_TEXT_GAP_PIXELS, SMALL_TEXT_BASELINE_PIXELS)
+		draw_string(ThemeDB.fallback_font, text_position, "+%d" % bonus, HORIZONTAL_ALIGNMENT_LEFT, NUMBER_WIDTH_PIXELS, SMALL_FONT_PIXELS, GuestPainter.INK_COLOR)
+	else:
+		var strike: Vector2 = Vector2(1.0, -1.0) * POOL_BADGE_RADIUS_PIXELS * 0.7
+		draw_line(center - strike, center + strike, GuestPainter.INK_COLOR, POOL_BADGE_STRIKE_PIXELS, true)
 
 
 ## Restituisce il lato di una camera che ora va incurvato, oppure NONE. La camera attiva curva

@@ -294,3 +294,38 @@ func test_waiting_button_is_free() -> void:
 
 	assert_true(_editor.rooms[0].is_under_works)
 	assert_false(_hud._lighting_panel.visible)
+
+
+## Il pulsante della piscina è comodo da toccare, non copre gli altri comandi e nessuno copre l'involucro.
+func test_pool_button_size_and_position() -> void:
+	var rect: Rect2 = _hud._pool_button.get_global_rect()
+
+	assert_gte(rect.size.x, MIN_TOUCH_PIXELS)
+	assert_gte(rect.size.y, MIN_TOUCH_PIXELS)
+	assert_false(rect.intersects(_hud._build_button.get_global_rect()))
+	assert_false(rect.intersects(_hud._reset_button.get_global_rect()))
+	assert_false(rect.intersects(_hud._lighting_panel.get_global_rect()))
+	assert_lte(rect.end.x, _hud.size.x)
+
+
+## Il pulsante attiva la scelta della cella; costruita la piscina, sparisce.
+func test_pool_button_toggles_and_disappears_when_built() -> void:
+	assert_true(_hud._pool_button.visible)
+	assert_true(_hud._pool_button.shows_pool)
+	assert_eq(_hud._pool_button._price, HotelSession.POOL_PRICE)
+	assert_false(_hud._pool_button._can_build)
+
+	_editor.session.coins = HotelSession.POOL_PRICE
+	_editor.session_changed.emit()
+	assert_true(_hud._pool_button._can_build)
+
+	var touch: InputEventScreenTouch = InputEventScreenTouch.new()
+	touch.pressed = true
+	_hud._pool_button._gui_input(touch)
+	assert_true(_editor.is_building_pool())
+	assert_true(_hud._pool_button._is_active)
+	assert_false(_hud._build_button._is_active)
+
+	_editor._handle_build_press(_editor.get_envelope_origin() + Vector2.ONE)
+	assert_false(_hud._pool_button.visible)
+	await wait_seconds(RoomEditor.SETTLE_SECONDS)

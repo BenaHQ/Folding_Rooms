@@ -11,7 +11,17 @@ extends RefCounted
 ## partita. Non decide chi entra dove: lo chiede a Grid.
 ## NUOVE CAMERE (D-028): una camera nuova nasce da 1 cella e si allarga gratis con il gesto. Costa
 ## monete, sempre di più, e non consuma il turno. Il prezzo si ricava da quante camere esistono.
+## LUCE (D-032): una camera normale si può rendere buia o dotare di lampade speciali, a pagamento. Per
+## tornare normale si paga, oppure è gratis ma resta in lavori fino a fine giornata.
 ## NOTA GDSCRIPT: «extends RefCounted» crea un oggetto che non compare nella scena.
+
+## Le modifiche alla luce di una camera che il giocatore può scegliere.
+enum LightingAction {
+	MAKE_DARK, ## Toglie l'illuminazione: la camera diventa buia.
+	MAKE_BRIGHT, ## Aggiunge le lampade speciali.
+	RESTORE_PAID, ## Torna normale subito, pagando.
+	RESTORE_WAIT, ## Torna normale gratis a fine giornata, e fino ad allora resta in lavori.
+}
 
 ## Quanti ospiti in fila si vedono oltre a quello di turno.
 const VISIBLE_UPCOMING_GUESTS: int = 2
@@ -26,6 +36,12 @@ const FIRST_NEW_ROOM_PRICE: int = 30
 const NEW_ROOM_PRICE_STEP: int = 20
 ## Misure di una camera appena costruita, in celle.
 const NEW_ROOM_SIZE_CELLS: Vector2i = Vector2i.ONE
+## Prezzo per rendere speciale una camera normale, in monete.
+const SPECIAL_ROOM_PRICE: int = 10
+## Prezzo per far tornare subito normale una camera speciale, in monete.
+const RESTORE_ROOM_PRICE: int = 20
+## Da quante camere arrivano pipistrello e ospite vegetale (D-032).
+const LATE_GUESTS_MIN_ROOMS: int = 4
 ## Nomi dei campi nel salvataggio.
 const COINS_KEY: String = "coins"
 const TURNS_PLAYED_KEY: String = "turns_played"
@@ -38,11 +54,15 @@ const ROOM_WIDTH_KEY: String = "width"
 const ROOM_HEIGHT_KEY: String = "height"
 const GUEST_KEY: String = "guest"
 const TURNS_LEFT_KEY: String = "turns_left"
-## Valore di «numero non valido» durante la lettura: i numeri salvati non sono mai negativi.
-const INVALID_COUNT: int = -1
-## Il numero più grande che si accetta da un file: 2^53, l'ultimo che un numero con la virgola
-## rappresenta ancora senza perdere precisione.
-const MAX_SAVED_COUNT: float = 9007199254740992.0
+const LIGHTING_KEY: String = "lighting"
+const UNDER_WORKS_KEY: String = "under_works"
+## Come si scrive ogni luce nel salvataggio: parole e non numeri, così riordinare l'elenco delle luci
+## non cambia il significato dei salvataggi esistenti.
+const LIGHTING_NAMES: Dictionary[Need.Lighting, String] = {
+	Need.Lighting.NORMAL: "normal",
+	Need.Lighting.DARK: "dark",
+	Need.Lighting.BRIGHT: "bright",
+}
 
 ## Le monete guadagnate finora.
 var coins: int = 0
@@ -62,6 +82,7 @@ func _init(grid: Grid, queue: GuestQueue) -> void:
 	_grid = grid
 	_queue = queue
 	arrivals_left = get_daily_arrivals()
+	_unlock_late_guests_if_ready()
 
 
 ## Restituisce l'ospite di turno.
@@ -121,7 +142,56 @@ func build_room(cell: Vector2i) -> Room:
 		return null
 
 	coins -= price
+	_unlock_late_guests_if_ready()
 	return new_room
+
+
+## Restituisce le modifiche alla luce possibili ora per una camera, anche se le monete non bastano.
+## Un ospite non impedisce di cambiare luce, per rimediare a una scelta; impedisce solo i lavori,
+## perché una camera in lavori non può ospitare nessuno.
+func get_lighting_actions(room: Room) -> Array[LightingAction]:
+	if room.is_under_works:
+		return []
+
+	if room.lighting == Need.Lighting.NORMAL:
+		return [LightingAction.MAKE_DARK, LightingAction.MAKE_BRIGHT]
+
+	if room.guest != null:
+		return [LightingAction.RESTORE_PAID]
+
+	return [LightingAction.RESTORE_PAID, LightingAction.RESTORE_WAIT]
+
+
+## Restituisce il prezzo di una modifica alla luce, in monete.
+func get_lighting_action_price(action: LightingAction) -> int:
+	match action:
+		LightingAction.RESTORE_PAID:
+			return RESTORE_ROOM_PRICE
+		LightingAction.RESTORE_WAIT:
+			return 0
+		_:
+			return SPECIAL_ROOM_PRICE
+
+
+## Applica una modifica alla luce e ne sottrae il prezzo. Il turno continua. Restituisce false, senza
+## cambiare nulla, se la modifica non è possibile per questa camera o le monete non bastano.
+func apply_lighting_action(room: Room, action: LightingAction) -> bool:
+	var price: int = get_lighting_action_price(action)
+	if not get_lighting_actions(room).has(action) or coins < price:
+		return false
+
+	coins -= price
+	match action:
+		LightingAction.MAKE_DARK:
+			room.lighting = Need.Lighting.DARK
+		LightingAction.MAKE_BRIGHT:
+			room.lighting = Need.Lighting.BRIGHT
+		LightingAction.RESTORE_PAID:
+			room.lighting = Need.Lighting.NORMAL
+		LightingAction.RESTORE_WAIT:
+			room.is_under_works = true
+
+	return true
 
 
 ## Restituisce la griglia della partita, con le sue camere.
@@ -147,9 +217,9 @@ func to_data() -> Dictionary:
 
 
 ## Ricrea una partita dai valori di to_data(), ripassando dalle regole di Grid: un file modificato
-## o danneggiato non può creare camere sovrapposte o ospiti che non entrano. species elenca gli
-## ospiti possibili. Restituisce null se qualcosa non è valido.
-static func from_data(data: Dictionary, species: Array[Guest]) -> HotelSession:
+## o danneggiato non può creare camere sovrapposte o ospiti che non entrano. species e late_species
+## elencano gli ospiti possibili, come in GuestQueue. Restituisce null se qualcosa non è valido.
+static func from_data(data: Dictionary, species: Array[Guest], late_species: Array[Guest] = []) -> HotelSession:
 	var room_entries: Variant = data.get(ROOMS_KEY)
 	var queue_data: Variant = data.get(QUEUE_KEY)
 	# Una partita ha sempre almeno una camera: la scena conta su questo per scegliere quella attiva.
@@ -158,15 +228,15 @@ static func from_data(data: Dictionary, species: Array[Guest]) -> HotelSession:
 
 	var grid: Grid = Grid.new(Envelope.new())
 	for entry: Variant in room_entries:
-		if not entry is Dictionary or not _add_room_from_data(grid, entry, species):
+		if not entry is Dictionary or not _add_room_from_data(grid, entry, species + late_species):
 			return null
 
-	var queue: GuestQueue = GuestQueue.from_data(queue_data, species)
-	var saved_coins: int = _read_count(data, COINS_KEY)
-	var saved_turns: int = _read_count(data, TURNS_PLAYED_KEY)
-	var saved_arrivals: int = _read_count(data, ARRIVALS_LEFT_KEY)
+	var queue: GuestQueue = GuestQueue.from_data(queue_data, species, late_species)
+	var saved_coins: int = SaveFile.read_count(data, COINS_KEY)
+	var saved_turns: int = SaveFile.read_count(data, TURNS_PLAYED_KEY)
+	var saved_arrivals: int = SaveFile.read_count(data, ARRIVALS_LEFT_KEY)
 	# Una giornata senza arrivi rimasti sarebbe già conclusa: un salvataggio valido non la contiene.
-	if queue == null or saved_coins == INVALID_COUNT or saved_turns == INVALID_COUNT or saved_arrivals < 1:
+	if queue == null or saved_coins == SaveFile.INVALID_COUNT or saved_turns == SaveFile.INVALID_COUNT or saved_arrivals < 1:
 		return null
 
 	var session: HotelSession = HotelSession.new(grid, queue)
@@ -183,10 +253,14 @@ func _room_to_data(room: Room) -> Dictionary:
 		ROOM_Y_KEY: room.cells.position.y,
 		ROOM_WIDTH_KEY: room.cells.size.x,
 		ROOM_HEIGHT_KEY: room.cells.size.y,
+		LIGHTING_KEY: LIGHTING_NAMES[room.lighting],
 	}
 
+	if room.is_under_works:
+		entry[UNDER_WORKS_KEY] = true
+
 	if room.guest != null:
-		entry[GUEST_KEY] = room.guest.id
+		entry[GUEST_KEY] = room.guest.to_data()
 		entry[TURNS_LEFT_KEY] = room.turns_left
 
 	return entry
@@ -195,23 +269,38 @@ func _room_to_data(room: Room) -> Dictionary:
 ## Aggiunge alla griglia la camera descritta da entry, con il suo eventuale ospite. Restituisce
 ## false se i valori non sono validi o se Grid rifiuta la camera o l'ospite.
 static func _add_room_from_data(grid: Grid, entry: Dictionary, species: Array[Guest]) -> bool:
-	var x: int = _read_count(entry, ROOM_X_KEY)
-	var y: int = _read_count(entry, ROOM_Y_KEY)
-	var width: int = _read_count(entry, ROOM_WIDTH_KEY)
-	var height: int = _read_count(entry, ROOM_HEIGHT_KEY)
-	if INVALID_COUNT in [x, y, width, height]:
+	var x: int = SaveFile.read_count(entry, ROOM_X_KEY)
+	var y: int = SaveFile.read_count(entry, ROOM_Y_KEY)
+	var width: int = SaveFile.read_count(entry, ROOM_WIDTH_KEY)
+	var height: int = SaveFile.read_count(entry, ROOM_HEIGHT_KEY)
+	if SaveFile.INVALID_COUNT in [x, y, width, height]:
 		return false
 
 	var room: Room = Room.new(Rect2i(x, y, width, height))
-	if not grid.add_room(room):
+	var lighting_name: Variant = entry.get(LIGHTING_KEY)
+	if not lighting_name is String:
 		return false
+
+	# find_key() cerca la chiave con quel valore, e dà null se non c'è: la parola è sconosciuta. Accetta
+	# solo testi, perché l'elenco è fatto di testi: per questo il tipo si controlla prima.
+	var lighting: Variant = LIGHTING_NAMES.find_key(lighting_name)
+	if lighting == null or not grid.add_room(room):
+		return false
+	room.lighting = lighting
+
+	# Il campo dei lavori c'è solo se sono in corso, e solo una camera speciale può tornare normale.
+	if entry.has(UNDER_WORKS_KEY):
+		var under_works: Variant = entry[UNDER_WORKS_KEY]
+		if not under_works is bool or not under_works or room.lighting == Need.Lighting.NORMAL:
+			return false
+		room.is_under_works = true
 
 	# Una camera senza il campo dell'ospite è semplicemente libera.
 	if not entry.has(GUEST_KEY):
 		return true
 
-	var guest: Guest = GuestQueue.find_guest(species, entry[GUEST_KEY])
-	var turns_left: int = _read_count(entry, TURNS_LEFT_KEY)
+	var guest: Guest = Guest.from_data(entry[GUEST_KEY], species)
+	var turns_left: int = SaveFile.read_count(entry, TURNS_LEFT_KEY)
 	# Un ospite senza turni rimasti sarebbe già partito: un salvataggio valido non lo contiene.
 	if guest == null or turns_left < 1 or not grid.assign_guest(guest, room):
 		return false
@@ -220,15 +309,11 @@ static func _add_room_from_data(grid: Grid, entry: Dictionary, species: Array[Gu
 	return true
 
 
-## Legge da un Dictionary un numero intero non negativo, oppure INVALID_COUNT se manca o non è
-## valido. Il file può contenere qualsiasi cosa: JSON dà ogni numero come float, quindi si controlla
-## che sia intero e abbastanza piccolo da restare preciso.
-static func _read_count(data: Dictionary, key: String) -> int:
-	var value: Variant = data.get(key)
-	if not value is float or value < 0.0 or value > MAX_SAVED_COUNT or value != floorf(value):
-		return INVALID_COUNT
-
-	return int(value)
+## Fa arrivare pipistrello e ospite vegetale, se l'hotel è abbastanza grande. Nessuna camera viene mai
+## demolita, quindi una volta sbloccati restano.
+func _unlock_late_guests_if_ready() -> void:
+	if _grid.get_rooms().size() >= LATE_GUESTS_MIN_ROOMS:
+		_queue.unlock_late_species()
 
 
 ## Fa avanzare la fila dopo che l'ospite di turno è stato sistemato o rifiutato. Se era l'ultimo della
@@ -253,7 +338,7 @@ func _end_turn() -> TurnReport:
 			continue
 
 		# Il compenso dipende da come sta ora: allargare una camera conviene anche dopo (D-026).
-		var fit: Need.Fit = room.guest.need.evaluate(room.cells.size)
+		var fit: Need.Fit = room.guest.need.evaluate_in_room(room.cells.size, room.lighting)
 		var amount: int = room.guest.get_pay(fit)
 		report.earnings[room] = amount
 		coins += amount
@@ -263,6 +348,13 @@ func _end_turn() -> TurnReport:
 			_grid.remove_guest(room)
 			report.departed_rooms.append(room)
 
+	# I lavori finiscono con la giornata: da domani la camera è di nuovo normale.
+	for room: Room in _grid.get_rooms():
+		if room.is_under_works:
+			room.is_under_works = false
+			room.lighting = Need.Lighting.NORMAL
+
 	turns_played += 1
 	arrivals_left = get_daily_arrivals()
+	_unlock_late_guests_if_ready()
 	return report

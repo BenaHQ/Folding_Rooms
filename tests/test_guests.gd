@@ -144,3 +144,36 @@ func test_room_may_become_cramped() -> void:
 	assert_true(grid.resize_room(left, Room.MovableSide.RIGHT_WALL, -1).is_valid())
 
 	assert_eq(_giraffe.need.evaluate(left.cells.size), Need.Fit.CRAMPED)
+
+
+## La luce sbagliata non impedisce di entrare, ma impedisce di stare bene (D-032).
+func test_wrong_light_lets_guest_in_but_not_comfortable() -> void:
+	var bat: Need = preload("res://data/guests/bat.tres").need
+
+	assert_eq(bat.evaluate_in_room(Vector2i(1, 2), Need.Lighting.DARK), Need.Fit.COMFORTABLE)
+	assert_eq(bat.evaluate_in_room(Vector2i(1, 2), Need.Lighting.NORMAL), Need.Fit.WRONG_LIGHT)
+	assert_eq(bat.evaluate_in_room(Vector2i(1, 2), Need.Lighting.BRIGHT), Need.Fit.WRONG_LIGHT)
+
+
+## Con la luce giusta conta di nuovo la misura, e se la misura non basta non si entra comunque.
+func test_light_does_not_replace_size() -> void:
+	var giraffe: Need = preload("res://data/guests/giraffe.tres").need
+
+	assert_eq(giraffe.evaluate_in_room(Vector2i(1, 3), Need.Lighting.NORMAL), Need.Fit.CRAMPED)
+	assert_eq(giraffe.evaluate_in_room(Vector2i(1, 2), Need.Lighting.DARK), Need.Fit.DOES_NOT_FIT)
+	assert_eq(giraffe.evaluate_in_room(Vector2i(2, 3), Need.Lighting.DARK), Need.Fit.WRONG_LIGHT)
+
+
+## Ogni ospite comune vuole la luce normale; il pipistrello il buio, la pianta le lampade.
+func test_guests_want_expected_light() -> void:
+	for guest: Guest in GuestQueue.PROTOTYPE_GUESTS:
+		assert_eq(guest.need.lighting, Need.Lighting.NORMAL, guest.id)
+
+	assert_eq(preload("res://data/guests/bat.tres").need.lighting, Need.Lighting.DARK)
+	assert_eq(preload("res://data/guests/plant.tres").need.lighting, Need.Lighting.BRIGHT)
+
+
+## Una camera con la luce giusta deve rendere più di una con la luce sbagliata (D-019).
+func test_light_guests_pay_more_when_comfortable() -> void:
+	for guest: Guest in GuestQueue.LIGHT_GUESTS:
+		assert_gt(guest.get_pay(Need.Fit.COMFORTABLE), guest.get_pay(Need.Fit.WRONG_LIGHT), guest.id)

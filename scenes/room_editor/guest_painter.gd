@@ -33,6 +33,13 @@ const LINE_PIXELS: float = 4.0
 ## Misura della punta di una freccia, in frazioni del raggio dell'icona.
 const ARROW_HEAD_FRACTION: float = 0.32
 
+## Posizione e misura della piccola icona della luce rispetto a quella del bisogno, in frazioni del
+## raggio di quest'ultima.
+const SMALL_ICON_OFFSET_FRACTION: float = 0.85
+const SMALL_ICON_RADIUS_FRACTION: float = 0.6
+## Quanti raggi ha il sole delle icone.
+const SUN_RAYS: int = 8
+
 ## Colore delle icone delle monete.
 const COIN_COLOR: Color = Color(0.95, 0.75, 0.3)
 ## Colore di occhi, bocca e simboli.
@@ -80,8 +87,52 @@ static func draw_need_icon(canvas: CanvasItem, shape: Need.Shape, center: Vector
 			canvas.draw_circle(center, radius * 0.18, INK_COLOR)
 
 
+## Disegna le icone del bisogno di un ospite: la forma e, se vuole una luce particolare, anche quella,
+## più piccola, sull'angolo in basso a destra.
+static func draw_need_icons(canvas: CanvasItem, need: Need, center: Vector2, radius: float) -> void:
+	draw_need_icon(canvas, need.shape, center, radius)
+
+	if need.lighting != Need.Lighting.NORMAL:
+		var small_center: Vector2 = center + Vector2.ONE * radius * SMALL_ICON_OFFSET_FRACTION
+		draw_lighting_icon(canvas, need.lighting, small_center, radius * SMALL_ICON_RADIUS_FRACTION)
+
+
+## Disegna l'icona di una luce: una luna per il buio, un sole per le lampade speciali, una finestra per
+## la luce normale.
+static func draw_lighting_icon(canvas: CanvasItem, lighting: Need.Lighting, center: Vector2, radius: float) -> void:
+	_draw_badge(canvas, center, radius)
+
+	match lighting:
+		Need.Lighting.DARK:
+			# Una luna crescente: un cerchio scuro coperto in parte da uno del colore dello sfondo.
+			canvas.draw_circle(center, radius * 0.55, INK_COLOR)
+			canvas.draw_circle(center + Vector2(radius * 0.28, -radius * 0.18), radius * 0.48, BADGE_COLOR)
+		Need.Lighting.BRIGHT:
+			_draw_sun(canvas, center, radius)
+		Need.Lighting.NORMAL:
+			var half: float = radius * 0.5
+			canvas.draw_rect(Rect2(center - Vector2.ONE * half, Vector2.ONE * half * 2.0), INK_COLOR, false, LINE_PIXELS / 2.0)
+			canvas.draw_line(center + Vector2(-half, 0.0), center + Vector2(half, 0.0), INK_COLOR, LINE_PIXELS / 2.0)
+			canvas.draw_line(center + Vector2(0.0, -half), center + Vector2(0.0, half), INK_COLOR, LINE_PIXELS / 2.0)
+
+
+## Disegna l'icona dei lavori in corso: un triangolo di pericolo con un punto esclamativo.
+static func draw_works_icon(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	_draw_badge(canvas, center, radius)
+	var triangle: PackedVector2Array = PackedVector2Array([
+		center + Vector2(0.0, -0.6) * radius,
+		center + Vector2(0.6, 0.45) * radius,
+		center + Vector2(-0.6, 0.45) * radius,
+		center + Vector2(0.0, -0.6) * radius,
+	])
+	canvas.draw_polyline(triangle, INK_COLOR, LINE_PIXELS / 2.0, true)
+	canvas.draw_line(center + Vector2(0.0, -0.25) * radius, center + Vector2(0.0, 0.08) * radius, INK_COLOR, LINE_PIXELS / 2.0)
+	canvas.draw_circle(center + Vector2(0.0, 0.27) * radius, radius * 0.06, INK_COLOR)
+
+
 ## Disegna l'icona di come starebbe l'ospite: spunta se sta bene, X se non entra, frecce verso
-## il centro se è stipato, frecce verso l'esterno se la camera è troppo grande.
+## il centro se è stipato, frecce verso l'esterno se la camera è troppo grande, sole barrato se la
+## luce è sbagliata.
 static func draw_fit_icon(canvas: CanvasItem, fit: Need.Fit, center: Vector2, radius: float) -> void:
 	_draw_badge(canvas, center, radius)
 	var reach: float = radius * 0.65
@@ -103,6 +154,9 @@ static func draw_fit_icon(canvas: CanvasItem, fit: Need.Fit, center: Vector2, ra
 		Need.Fit.TOO_BIG:
 			_draw_arrow(canvas, center + Vector2(-radius * 0.1, 0.0), center + Vector2(-reach, 0.0), radius)
 			_draw_arrow(canvas, center + Vector2(radius * 0.1, 0.0), center + Vector2(reach, 0.0), radius)
+		Need.Fit.WRONG_LIGHT:
+			_draw_sun(canvas, center, radius)
+			canvas.draw_line(center + Vector2(-reach, reach), center + Vector2(reach, -reach), INK_COLOR, LINE_PIXELS, true)
 
 
 ## Disegna l'icona di una moneta.
@@ -156,6 +210,14 @@ static func draw_mood_icon(canvas: CanvasItem, center: Vector2, radius: float, i
 	_draw_badge(canvas, center, radius)
 	var fit: Need.Fit = Need.Fit.COMFORTABLE if is_happy else Need.Fit.CRAMPED
 	_draw_face(canvas, center + Vector2(0.0, -radius * 0.25), fit, radius / FACE_REFERENCE_PIXELS * 2.0)
+
+
+## Disegna un sole: un cerchio con i raggi attorno, tutti alla stessa distanza.
+static func _draw_sun(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	canvas.draw_circle(center, radius * 0.28, INK_COLOR)
+	for ray: int in SUN_RAYS:
+		var direction: Vector2 = Vector2.from_angle(TAU * ray / SUN_RAYS)
+		canvas.draw_line(center + direction * radius * 0.45, center + direction * radius * 0.72, INK_COLOR, LINE_PIXELS / 2.0, true)
 
 
 ## Restituisce dove sta il viso: in cima a un corpo alto, a destra in uno lungo.

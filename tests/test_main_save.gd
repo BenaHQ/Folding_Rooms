@@ -29,7 +29,7 @@ const MAIN_SCENE_PATH: String = "res://scenes/main/main.tscn"
 ## File usato dai test, diverso da quello della partita vera.
 const TEST_PATH: String = "user://test_main_save.json"
 ## L'ospite usato nei test: entra da 1×3 e sta bene da 2×3.
-const GIRAFFE: Guest = preload("res://data/guests/giraffe.tres")
+const GIRAFFE: Guest = preload("res://tests/data/fixed_giraffe.tres")
 ## Seme fisso: con una sola specie l'ordine è comunque sempre lo stesso.
 const TEST_SEED: int = 1
 ## Forma della prima camera dopo aver alzato il soffitto di una cella.
@@ -108,7 +108,7 @@ func test_game_resumes_after_going_to_background() -> void:
 	assert_eq(editor.session.turns_played, 1)
 	assert_eq(editor.rooms.size(), 2)
 	assert_eq(editor.rooms[0].cells, RAISED_ROOM_CELLS)
-	assert_eq(editor.rooms[0].guest, GIRAFFE)
+	assert_eq(editor.rooms[0].guest.id, GIRAFFE.id)
 	assert_eq(editor.rooms[0].turns_left, played.get_grid().get_rooms()[0].turns_left)
 	# La griglia usata dalla scena deve essere quella ricaricata: i gesti lavorano su di essa.
 	assert_eq(editor.session.get_grid().get_rooms()[0], editor.rooms[0])
@@ -284,3 +284,18 @@ func test_loaded_game_can_be_reset() -> void:
 
 	_assert_is_new_game(second)
 	assert_eq(_editor_of(second).rooms.size(), HotelSession.STARTING_ROOMS)
+
+
+## Una partita con le specie nuove e le camere speciali riprende dalla scena vera.
+func test_light_game_resumes_in_scene() -> void:
+	var first: MainWithoutQuit = _launch()
+	var first_editor: RoomEditor = _editor_of(first)
+	first_editor.session.coins = 1000
+	first_editor.session.apply_lighting_action(first_editor.rooms[0], HotelSession.LightingAction.MAKE_DARK)
+	first_editor.session.get_grid().assign_guest(GuestQueue.LIGHT_GUESTS[0], first_editor.rooms[0])
+	first.propagate_notification(NOTIFICATION_APPLICATION_PAUSED)
+
+	var editor: RoomEditor = _editor_of(_launch())
+
+	assert_eq(editor.rooms[0].lighting, Need.Lighting.DARK)
+	assert_eq(editor.rooms[0].guest.id, GuestQueue.LIGHT_GUESTS[0].id)

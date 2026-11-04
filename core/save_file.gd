@@ -23,7 +23,9 @@ enum Status {
 
 ## Versione attuale del formato. Va aumentata ogni volta che cambia la struttura dei dati salvati.
 ## La versione 2 ha aggiunto gli arrivi rimasti nella giornata (D-029).
-const FORMAT_VERSION: int = 2
+## La versione 3 ha aggiunto la luce delle camere, i lavori (D-032) e i valori propri di ogni
+## ospite (D-033).
+const FORMAT_VERSION: int = 3
 ## Nome del campo con la versione del formato.
 const VERSION_KEY: String = "format_version"
 ## Nome del campo con i dati veri e propri.
@@ -35,6 +37,12 @@ const UNREADABLE_SUFFIX: String = ".unreadable"
 ## Rientro del testo JSON: rende il file leggibile a chi lo apre per controllarlo.
 const JSON_INDENT: String = "\t"
 
+## Valore di «numero non valido» durante la lettura: i numeri salvati non sono mai negativi.
+const INVALID_COUNT: int = -1
+## Il numero più grande che si accetta da un file: 2^53, l'ultimo che un numero con la virgola
+## rappresenta ancora senza perdere precisione.
+const MAX_SAVED_COUNT: float = 9007199254740992.0
+
 ## Com'è andata la lettura.
 var status: Status
 ## I dati letti, solo se status è LOADED; altrimenti è vuoto.
@@ -45,6 +53,17 @@ var data: Dictionary
 func _init(read_status: Status, read_data: Dictionary = {}) -> void:
 	status = read_status
 	data = read_data
+
+
+## Legge da un Dictionary un numero intero non negativo, oppure INVALID_COUNT se manca o non è
+## valido. Il file può contenere qualsiasi cosa: JSON dà ogni numero come float, quindi si controlla
+## che sia intero e abbastanza piccolo da restare preciso.
+static func read_count(values: Dictionary, key: String) -> int:
+	var value: Variant = values.get(key)
+	if not value is float or value < 0.0 or value > MAX_SAVED_COUNT or value != floorf(value):
+		return INVALID_COUNT
+
+	return int(value)
 
 
 ## Legge un salvataggio dal percorso indicato e dice com'è andata. Non modifica nessun file.

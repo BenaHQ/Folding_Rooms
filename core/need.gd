@@ -1,8 +1,8 @@
 class_name Need
 extends Resource
-## Bisogno di forma di un ospite: quali misure di camera gli servono e quali gli piacciono.
+## Bisogno di un ospite: quali misure di camera gli servono, quali gli piacciono e che luce vuole.
 ##
-## COSA FA: dalla misura di una camera ricava come ci starebbe l'ospite. Applica il principio
+## COSA FA: dalla misura e dalla luce di una camera ricava come ci starebbe l'ospite. Applica il principio
 ## «su misura, non al minimo» (decisione D-019): entrare e stare bene sono due cose diverse.
 ## CHI LA USA: Guest la contiene, Grid la consulta per le regole e RoomEditor per le reazioni.
 ## PERCHÉ È SEPARATA: i numeri stanno nei file di dati in data/, non in catene di «if», e le
@@ -18,6 +18,7 @@ enum Fit {
 	CRAMPED, ## Entra, ma è stipato: la camera è troppo stretta per stare bene.
 	COMFORTABLE, ## Sta bene.
 	TOO_BIG, ## Entra, ma la camera è troppo grande per lui e lo mette a disagio.
+	WRONG_LIGHT, ## Entra, ma la luce della camera non è quella che vuole (D-032).
 }
 
 ## Il tipo di forma che l'ospite cerca: decide l'icona mostrata al giocatore.
@@ -25,6 +26,13 @@ enum Shape {
 	TALL, ## Vuole una camera alta.
 	LONG, ## Vuole una camera bassa e lunga.
 	COZY, ## Vuole una camera raccolta.
+}
+
+## La luce di una camera, e quella che un ospite vuole (D-032).
+enum Lighting {
+	NORMAL, ## Luce normale: è quella di ogni camera nuova e la vogliono gli ospiti comuni.
+	DARK, ## Illuminazione tolta: è quella che vuole il pipistrello.
+	BRIGHT, ## Lampade speciali: è quella che vuole l'ospite vegetale.
 }
 
 ## Valore che significa «nessun limite massimo» nelle misure massime.
@@ -38,6 +46,8 @@ const NO_LIMIT: int = 0
 @export var comfortable_min_size: Vector2i = Vector2i.ONE
 ## Misura massima per stare bene, in celle. NO_LIMIT su un asse significa nessun limite.
 @export var comfortable_max_size: Vector2i = Vector2i(NO_LIMIT, NO_LIMIT)
+## La luce che l'ospite vuole per stare bene.
+@export var lighting: Lighting = Lighting.NORMAL
 
 
 ## Restituisce come starebbe l'ospite in una camera di room_size celle. Non modifica nulla.
@@ -52,6 +62,17 @@ func evaluate(room_size: Vector2i) -> Fit:
 		return Fit.TOO_BIG
 
 	return Fit.COMFORTABLE
+
+
+## Restituisce come starebbe l'ospite in una camera di room_size celle con la luce indicata. La luce
+## sbagliata non impedisce mai di entrare: la misura sì. Non modifica nulla.
+func evaluate_in_room(room_size: Vector2i, room_lighting: Lighting) -> Fit:
+	var size_fit: Fit = evaluate(room_size)
+
+	if size_fit != Fit.DOES_NOT_FIT and room_lighting != lighting:
+		return Fit.WRONG_LIGHT
+
+	return size_fit
 
 
 ## Restituisce true se size supera il limite, a meno che il limite sia NO_LIMIT.

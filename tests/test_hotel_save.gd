@@ -1,5 +1,5 @@
 extends GutTest
-## Test del contenuto del salvataggio: partita, camere, ospiti e fila.
+## Test del contenuto del salvataggio: partita, camere, luce, ospiti e fila.
 ##
 ## COMPORTAMENTO PROTETTO: una partita ricaricata prosegue esattamente come quella originale, fino
 ## all'ordine dei prossimi ospiti. Un file modificato o danneggiato non può creare una partita
@@ -13,7 +13,7 @@ extends GutTest
 
 ## Ospiti usati nei test.
 const SPECIES: Array[Guest] = GuestQueue.PROTOTYPE_GUESTS
-const GIRAFFE: Guest = preload("res://data/guests/giraffe.tres")
+const GIRAFFE: Guest = preload("res://tests/data/fixed_giraffe.tres")
 ## Seme fisso, per avere sempre lo stesso ordine di arrivo.
 const TEST_SEED: int = 42
 ## Semi provati per lo stato del generatore: alcuni danno uno stato che, scritto, è negativo.
@@ -30,11 +30,22 @@ const VALID_DATA: Dictionary = {
 	"turns_played": 5.0,
 	"arrivals_left": 1.0,
 	"rooms": [
-		{"x": 2.0, "y": 4.0, "width": 2.0, "height": 2.0},
-		{"x": 4.0, "y": 4.0, "width": 2.0, "height": 3.0, "guest": "giraffe", "turns_left": 2.0},
+		{"x": 2.0, "y": 4.0, "width": 2.0, "height": 2.0, "lighting": "normal"},
+		{"x": 4.0, "y": 4.0, "width": 2.0, "height": 3.0, "lighting": "normal", "guest": {"id": "giraffe", "stay_turns": 3.0, "comfortable_pay": 11.0, "uncomfortable_pay": 4.0}, "turns_left": 2.0},
 	],
-	"queue": {"line": ["snake", "dormouse"], "random_state": "12345"},
+	"queue": {
+		"line": [
+			{"id": "snake", "stay_turns": 2.0, "comfortable_pay": 12.0, "uncomfortable_pay": 5.0},
+			{"id": "dormouse", "stay_turns": 3.0, "comfortable_pay": 6.0, "uncomfortable_pay": 3.0},
+		],
+		"random_state": "12345",
+	},
 }
+
+
+## Descrive una serie di ospiti con specie e valori, per confrontarla con un'altra.
+func _describe(guests: Array[Guest]) -> Array:
+	return guests.map(func(guest: Guest) -> Dictionary: return guest.to_data())
 
 
 ## Restituisce una copia dei dati validi, da modificare per il singolo test.
@@ -73,7 +84,8 @@ func test_valid_data_is_accepted() -> void:
 	var rooms: Array[Room] = session.get_grid().get_rooms()
 	assert_eq(rooms[0].cells, Rect2i(2, 4, 2, 2))
 	assert_null(rooms[0].guest)
-	assert_eq(rooms[1].guest, GIRAFFE)
+	assert_eq(rooms[1].guest.id, "giraffe")
+	assert_eq(rooms[1].guest.comfortable_pay, 11)
 	assert_eq(rooms[1].turns_left, 2)
 	assert_eq(session.get_current_guest().id, "snake")
 
@@ -95,7 +107,7 @@ func test_round_trip_restores_game_state() -> void:
 	var loaded_rooms: Array[Room] = loaded.get_grid().get_rooms()
 	assert_eq(loaded_rooms.size(), 2)
 	assert_eq(loaded_rooms[0].cells, room.cells)
-	assert_eq(loaded_rooms[0].guest, GIRAFFE)
+	assert_eq(loaded_rooms[0].guest.id, GIRAFFE.id)
 	assert_eq(loaded_rooms[0].turns_left, room.turns_left)
 	assert_null(loaded_rooms[1].guest)
 	assert_eq(loaded_rooms[1].turns_left, 0)
@@ -119,7 +131,7 @@ func test_queue_resumes_same_order_after_loading() -> void:
 		if loaded == null:
 			return
 
-		assert_eq(loaded.peek(FUTURE_GUESTS_TO_CHECK), queue.peek(FUTURE_GUESTS_TO_CHECK))
+		assert_eq(_describe(loaded.peek(FUTURE_GUESTS_TO_CHECK)), _describe(queue.peek(FUTURE_GUESTS_TO_CHECK)))
 
 	# Il valore negativo è il caso più delicato: i semi scelti devono metterlo alla prova.
 	assert_true(found_negative_state)
@@ -135,7 +147,7 @@ func test_loaded_game_plays_on_identically() -> void:
 		return
 
 	for turn: int in TURNS_TO_PLAY:
-		assert_eq(loaded.get_current_guest(), session.get_current_guest())
+		assert_eq(loaded.get_current_guest().to_data(), session.get_current_guest().to_data())
 		# Prova a sistemare ogni ospite nella prima camera, altrimenti lo rifiuta.
 		if session.host_current_guest(session.get_grid().get_rooms()[0]) == null:
 			session.refuse_current_guest()
@@ -153,7 +165,7 @@ func test_missing_fields_are_rejected() -> void:
 		data.erase(key)
 		_assert_rejected(data, "Manca «%s»" % key)
 
-	for key: String in ["x", "y", "width", "height"]:
+	for key: String in ["x", "y", "width", "height", "lighting"]:
 		var data: Dictionary = _valid_data()
 		data["rooms"][0].erase(key)
 		_assert_rejected(data, "Manca «%s» nella camera" % key)
@@ -225,7 +237,7 @@ func test_rooms_breaking_grid_rules_are_rejected() -> void:
 ## Gli ospiti devono esistere, entrare nella camera e avere ancora turni da passare.
 func test_invalid_guests_are_rejected() -> void:
 	var data: Dictionary = _valid_data()
-	data["rooms"][1]["guest"] = "unicorno"
+	data["rooms"][1]["guest"]["id"] = "unicorno"
 	_assert_rejected(data, "Specie inesistente")
 
 	data = _valid_data()
@@ -238,7 +250,7 @@ func test_invalid_guests_are_rejected() -> void:
 
 	# La giraffa ha bisogno di un'altezza di almeno 3 celle: questa camera ne ha 2.
 	data = _valid_data()
-	data["rooms"][0]["guest"] = "giraffe"
+	data["rooms"][0]["guest"] = data["rooms"][1]["guest"]
 	data["rooms"][0]["turns_left"] = 1.0
 	_assert_rejected(data, "L'ospite non entra")
 
@@ -246,7 +258,7 @@ func test_invalid_guests_are_rejected() -> void:
 ## La fila deve contenere solo specie note e uno stato del generatore leggibile.
 func test_invalid_queue_is_rejected() -> void:
 	var data: Dictionary = _valid_data()
-	data["queue"]["line"] = ["snake", "unicorno"]
+	data["queue"]["line"][1]["id"] = "unicorno"
 	_assert_rejected(data, "Specie inesistente in fila")
 
 	data = _valid_data()
@@ -310,3 +322,131 @@ func test_zero_arrivals_left_is_rejected() -> void:
 	var data: Dictionary = _valid_data()
 	data["arrivals_left"] = 0.0
 	_assert_rejected(data, "Nessun arrivo rimasto")
+
+
+## Luce e lavori tornano come prima, e i lavori finiscono a fine giornata anche dopo il caricamento.
+func test_lighting_and_works_survive_saving() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	var dark_room: Room = Room.new(Rect2i(0, 0, 1, 1))
+	var bright_room: Room = Room.new(Rect2i(1, 0, 1, 1))
+	grid.add_room(dark_room)
+	grid.add_room(bright_room)
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new(SPECIES, TEST_SEED))
+	session.coins = 100
+	session.apply_lighting_action(dark_room, HotelSession.LightingAction.MAKE_DARK)
+	session.apply_lighting_action(bright_room, HotelSession.LightingAction.MAKE_BRIGHT)
+	session.apply_lighting_action(bright_room, HotelSession.LightingAction.RESTORE_WAIT)
+
+	var loaded: HotelSession = HotelSession.from_data(_through_json(session.to_data()), SPECIES)
+	assert_not_null(loaded)
+	if loaded == null:
+		return
+
+	var rooms: Array[Room] = loaded.get_grid().get_rooms()
+	assert_eq(rooms[0].lighting, Need.Lighting.DARK)
+	assert_false(rooms[0].is_under_works)
+	assert_eq(rooms[1].lighting, Need.Lighting.BRIGHT)
+	assert_true(rooms[1].is_under_works)
+
+	loaded.refuse_current_guest()
+
+	assert_eq(rooms[0].lighting, Need.Lighting.DARK)
+	assert_eq(rooms[1].lighting, Need.Lighting.NORMAL)
+
+
+## Ospiti e fila possono contenere le specie arrivate dopo, e con 4 camere il sacchetto le include.
+func test_late_guests_survive_saving() -> void:
+	var bat: Guest = GuestQueue.LIGHT_GUESTS[0]
+	var grid: Grid = Grid.new(Envelope.new())
+	for index: int in HotelSession.LATE_GUESTS_MIN_ROOMS:
+		grid.add_room(Room.new(Rect2i(index, 0, 1, 1)))
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new(SPECIES, TEST_SEED, GuestQueue.LIGHT_GUESTS))
+	session.get_grid().assign_guest(bat, grid.get_rooms()[0])
+	session.get_upcoming_guests()
+
+	var loaded: HotelSession = HotelSession.from_data(_through_json(session.to_data()), SPECIES, GuestQueue.LIGHT_GUESTS)
+	assert_not_null(loaded)
+	if loaded == null:
+		return
+
+	assert_eq(loaded.get_grid().get_rooms()[0].guest.id, bat.id)
+	for arrival: int in FUTURE_GUESTS_TO_CHECK:
+		assert_eq(loaded.get_current_guest().to_data(), session.get_current_guest().to_data())
+		loaded.refuse_current_guest()
+		session.refuse_current_guest()
+
+
+## Una luce sconosciuta, o di tipo sbagliato, rende il salvataggio non valido.
+func test_invalid_lighting_is_rejected() -> void:
+	for bad_lighting: Variant in ["viola", 1.0, null, []]:
+		var data: Dictionary = _valid_data()
+		data["rooms"][0]["lighting"] = bad_lighting
+		_assert_rejected(data, "Luce: %s" % [bad_lighting])
+
+
+## I lavori hanno senso solo in una camera speciale e libera.
+func test_invalid_works_are_rejected() -> void:
+	var data: Dictionary = _valid_data()
+	data["rooms"][0]["under_works"] = true
+	_assert_rejected(data, "Lavori in una camera normale")
+
+	data = _valid_data()
+	data["rooms"][0]["lighting"] = "dark"
+	data["rooms"][0]["under_works"] = "sì"
+	_assert_rejected(data, "Lavori non booleani")
+
+	data = _valid_data()
+	data["rooms"][1]["lighting"] = "dark"
+	data["rooms"][1]["under_works"] = true
+	_assert_rejected(data, "Lavori in una camera occupata")
+
+
+## Anche le specie arrivate dopo devono avere un nome proprio, diverso da tutte le altre.
+func test_late_species_have_unique_ids() -> void:
+	var ids: Dictionary[String, bool] = {}
+	for guest: Guest in SPECIES + GuestQueue.LIGHT_GUESTS:
+		assert_ne(guest.id, "")
+		ids[guest.id] = true
+
+	assert_eq(ids.size(), SPECIES.size() + GuestQueue.LIGHT_GUESTS.size())
+
+
+## I valori propri di ogni ospite, in camera e in fila, restano quelli estratti (D-033).
+func test_rolled_values_survive_saving() -> void:
+	var grid: Grid = Grid.new(Envelope.new())
+	grid.add_room(Room.new(Rect2i(0, 0, 2, 2)))
+	grid.add_room(Room.new(Rect2i(2, 0, 2, 2)))
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new([SPECIES[2]], TEST_SEED))
+	var hosted: Dictionary = session.get_current_guest().to_data()
+	session.host_current_guest(grid.get_rooms()[0])
+	var next: Dictionary = session.get_current_guest().to_data()
+
+	var loaded: HotelSession = HotelSession.from_data(_through_json(session.to_data()), SPECIES)
+	assert_not_null(loaded)
+	if loaded == null:
+		return
+
+	assert_eq(loaded.get_grid().get_rooms()[0].guest.to_data(), hosted)
+	assert_eq(loaded.get_current_guest().to_data(), next)
+
+
+## Valori dell'ospite mancanti o sbagliati rendono il salvataggio non valido, in camera e in fila.
+func test_invalid_guest_values_are_rejected() -> void:
+	for key: String in ["id", "stay_turns", "comfortable_pay", "uncomfortable_pay"]:
+		var data: Dictionary = _valid_data()
+		data["rooms"][1]["guest"].erase(key)
+		_assert_rejected(data, "Manca «%s» nell'ospite in camera" % key)
+
+		data = _valid_data()
+		data["queue"]["line"][0].erase(key)
+		_assert_rejected(data, "Manca «%s» nell'ospite in fila" % key)
+
+	for bad_count: Variant in BAD_COUNTS:
+		for key: String in ["stay_turns", "comfortable_pay", "uncomfortable_pay"]:
+			var data: Dictionary = _valid_data()
+			data["rooms"][1]["guest"][key] = bad_count
+			_assert_rejected(data, "%s = %s" % [key, bad_count])
+
+	var zero_stay: Dictionary = _valid_data()
+	zero_stay["queue"]["line"][0]["stay_turns"] = 0.0
+	_assert_rejected(zero_stay, "Permanenza di zero turni")

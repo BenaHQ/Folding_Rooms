@@ -36,6 +36,10 @@ var cells: Rect2i
 var guest: Guest = null
 ## Quanti turni resta l'ospite, compreso quello in corso. Vale 0 se la camera è libera.
 var turns_left: int = 0
+## La luce della camera (D-032). Le modifiche passano da HotelSession, che le fa pagare.
+var lighting: Need.Lighting = Need.Lighting.NORMAL
+## true se la camera sta tornando normale gratis: fino a fine giornata non può ospitare nessuno.
+var is_under_works: bool = false
 
 
 ## Crea una camera che occupa il rettangolo indicato, in celle.

@@ -7,7 +7,7 @@ extends Control
 ## risultato previsto, anche sulla camera vicina coinvolta. Al rilascio conferma la modifica
 ## e anima l'assestamento. Mostra gli ospiti: toccando la camera selezionata vi entra l'ospite di
 ## turno (D-026, D-029). In modalità costruzione segna le celle libere: toccandone
-## una si compra una nuova camera (D-028).
+## una si compra una nuova camera (D-028). Disegna la luce di ogni camera (D-032).
 ## CHI LA USA: la scena principale main.tscn, che la contiene come nodo figlio.
 ## PERCHÉ È SEPARATA: tiene insieme disegno e tocco. Le regole stanno in Grid e il
 ## calcolo del gesto in RoomDrag e RoomMove, così si possono provare senza grafica. Questa scena
@@ -27,6 +27,8 @@ extends Control
 signal session_changed
 ## Lanciato quando la modalità costruzione si attiva o si disattiva.
 signal build_mode_changed
+## Lanciato quando la camera selezionata cambia, o non ce n'è più una.
+signal selection_changed
 
 ## Valore di «nessun dito» e di «nessuna maniglia»: gli indici veri partono da zero.
 const NONE: int = -1
@@ -132,6 +134,13 @@ const STATUS_BACKGROUND_COLOR: Color = Color(1.0, 1.0, 1.0)
 const BUILD_CELL_COLOR: Color = Color(0.09, 0.47, 0.36, 0.14)
 const BUILD_CELL_INSET_PIXELS: float = 8.0
 const BUILD_MARKER_RADIUS_PIXELS: float = 22.0
+
+## Velo disegnato sopra l'interno delle camere speciali e di quelle in lavori. Sta sotto l'ospite.
+const DARK_ROOM_TINT: Color = Color(0.06, 0.07, 0.2, 0.62)
+const BRIGHT_ROOM_TINT: Color = Color(1.0, 0.9, 0.35, 0.3)
+const WORKS_ROOM_TINT: Color = Color(0.45, 0.43, 0.42, 0.55)
+## Raggio dell'icona della luce nell'angolo in alto a destra di una camera, in pixel.
+const LIGHTING_BADGE_RADIUS_PIXELS: float = 22.0
 
 ## Spessore delle linee principali, in pixel.
 const THICK_LINE_PIXELS: float = 5.0
@@ -251,6 +260,22 @@ func is_room_selected() -> bool:
 	return _is_room_selected
 
 
+## Restituisce la camera selezionata, oppure null se non ce n'è nessuna.
+func get_selected_room() -> Room:
+	return room if _is_room_selected else null
+
+
+## Applica una modifica alla luce della camera selezionata. Durante un gesto non fa nulla, come gli
+## altri pulsanti. HotelSession decide se è possibile e la fa pagare.
+func apply_lighting_action(action: int) -> void:
+	if _drag != null or _is_recognizing_gesture or not _is_room_selected:
+		return
+
+	if session.apply_lighting_action(room, action as HotelSession.LightingAction):
+		session_changed.emit()
+		queue_redraw()
+
+
 ## Restituisce true se il prossimo tocco serve a scegliere dove costruire una camera.
 func is_building() -> bool:
 	return _is_building
@@ -291,7 +316,7 @@ func start_new_game() -> void:
 	room = rooms[0]
 
 	# randi() dà un numero casuale: ogni partita ha un ordine di arrivo diverso.
-	start_session(GuestQueue.new(GuestQueue.PROTOTYPE_GUESTS, randi()))
+	start_session(GuestQueue.new(GuestQueue.PROTOTYPE_GUESTS, randi(), GuestQueue.LIGHT_GUESTS))
 	queue_redraw()
 
 
@@ -517,7 +542,7 @@ func _set_earning_progress(value: float) -> void:
 
 ## Anima la reazione dell'ospite appena entrato, diversa se sta bene oppure no (D-019).
 func _play_reaction(target_room: Room) -> void:
-	var is_happy: bool = target_room.guest.need.evaluate(target_room.cells.size) == Need.Fit.COMFORTABLE
+	var is_happy: bool = target_room.guest.need.evaluate_in_room(target_room.cells.size, target_room.lighting) == Need.Fit.COMFORTABLE
 	var start_scale: Vector2 = HAPPY_REACTION_SCALE if is_happy else SAD_REACTION_SCALE
 	var transition: Tween.TransitionType = Tween.TRANS_ELASTIC if is_happy else Tween.TRANS_SINE
 
@@ -595,6 +620,7 @@ func _set_room_selected(selected: bool) -> void:
 		return
 
 	_is_room_selected = selected
+	selection_changed.emit()
 
 	# create_tween() crea un'animazione legata a questo nodo; tween_method() chiama più
 	# volte la funzione indicata con un valore che va da quello iniziale a quello finale.
@@ -827,11 +853,34 @@ func _draw_room(origin: Vector2, target_room: Room) -> void:
 	var painter: RoomPainter = _painters[target_room]
 
 	painter.paint_interior(self, outline, rect, origin)
+	_draw_room_tint(outline, target_room)
 	_draw_room_guest(rect, target_room)
 	painter.paint_frame(self, outline)
+	_draw_lighting_badge(rect, target_room)
 
 	if target_room.guest != null:
 		_draw_turns_badge(rect, target_room.turns_left)
+
+
+## Disegna il velo che dà alla camera la sua luce. Una camera normale non ne ha.
+func _draw_room_tint(outline: PackedVector2Array, target_room: Room) -> void:
+	if target_room.is_under_works:
+		draw_colored_polygon(outline, WORKS_ROOM_TINT)
+	elif target_room.lighting == Need.Lighting.DARK:
+		draw_colored_polygon(outline, DARK_ROOM_TINT)
+	elif target_room.lighting == Need.Lighting.BRIGHT:
+		draw_colored_polygon(outline, BRIGHT_ROOM_TINT)
+
+
+## Disegna nell'angolo in alto a destra l'icona della luce o dei lavori: lo stato della camera si legge
+## da una forma, non solo dal colore. Una camera normale non ne ha bisogno.
+func _draw_lighting_badge(room_rect: Rect2, target_room: Room) -> void:
+	var center: Vector2 = room_rect.position + Vector2(room_rect.size.x - TURNS_BADGE_INSET_PIXELS, TURNS_BADGE_INSET_PIXELS)
+
+	if target_room.is_under_works:
+		GuestPainter.draw_works_icon(self, center, LIGHTING_BADGE_RADIUS_PIXELS)
+	elif target_room.lighting != Need.Lighting.NORMAL:
+		GuestPainter.draw_lighting_icon(self, target_room.lighting, center, LIGHTING_BADGE_RADIUS_PIXELS)
 
 
 ## Restituisce il lato di una camera che ora va incurvato, oppure NONE. La camera attiva curva
@@ -920,7 +969,7 @@ func _draw_room_guest(room_rect: Rect2, target_room: Room) -> void:
 	if guest == null:
 		return
 
-	var fit: Need.Fit = guest.need.evaluate(_get_displayed_cells(target_room).size)
+	var fit: Need.Fit = guest.need.evaluate_in_room(_get_displayed_cells(target_room).size, target_room.lighting)
 	var is_preview: bool = target_room.guest == null
 	var pose_scale: Vector2 = _reaction_scale if target_room == _reacting_room else Vector2.ONE
 	var floor_center: Vector2 = Vector2(room_rect.get_center().x, room_rect.end.y)
@@ -948,9 +997,9 @@ func _draw_guest_icons(origin: Vector2) -> void:
 		var guest_top: float = rect.end.y - guest.body_size_cells.y * CELL_SIZE_PIXELS
 		center = origin + Vector2(rect.get_center().x + GUEST_ICON_SPACING_PIXELS / 2.0, minf(rect.position.y, guest_top) - GUEST_ICON_ABOVE_ROOM_PIXELS)
 
-	var fit: Need.Fit = guest.need.evaluate(_get_displayed_cells(room).size)
+	var fit: Need.Fit = guest.need.evaluate_in_room(_get_displayed_cells(room).size, room.lighting)
 	GuestPainter.draw_fit_icon(self, fit, center, GUEST_ICON_RADIUS_PIXELS)
-	GuestPainter.draw_need_icon(self, guest.need.shape, center + Vector2(-GUEST_ICON_SPACING_PIXELS, 0.0), GUEST_ICON_RADIUS_PIXELS)
+	GuestPainter.draw_need_icons(self, guest.need, center + Vector2(-GUEST_ICON_SPACING_PIXELS, 0.0), GUEST_ICON_RADIUS_PIXELS)
 
 
 ## Disegna le maniglie: tutte se la camera è solo selezionata, solo quella in uso durante

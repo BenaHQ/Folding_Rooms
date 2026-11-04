@@ -3,7 +3,7 @@ extends GutTest
 ##
 ## COMPORTAMENTO PROTETTO: toccare una camera mostra le sue maniglie; trascinare una maniglia e
 ## rilasciare applica la modifica, anche alla camera vicina; un secondo dito viene ignorato; un
-## tocco interrotto non cambia le camere. Dal centro la camera si sposta intera (D-030). Ricominciare riporta tutto all'inizio (D-031). In modalità costruzione un tocco su una cella libera compra una camera (D-028). La sensazione del gesto non è giudicabile da un test: va provata a mano.
+## tocco interrotto non cambia le camere. Dal centro la camera si sposta intera (D-030). Ricominciare riporta tutto all'inizio (D-031). La luce si cambia solo a gesto fermo (D-032). In modalità costruzione un tocco su una cella libera compra una camera (D-028). La sensazione del gesto non è giudicabile da un test: va provata a mano.
 ## CHI LO USA: GUT, lo strumento che esegue i test automatici. Il comando per avviarli è
 ## scritto in docs/STATO.md.
 ## PERCHÉ È SEPARATO: prova la scena completa, mentre test_room_drag.gd prova il calcolo.
@@ -32,7 +32,7 @@ const ANIMATION_MARGIN_SECONDS: float = 0.1
 ## Scarto accettato sulla curvatura a fine animazione, in pixel.
 const BEND_TOLERANCE_PIXELS: float = 0.01
 ## Ospite usato nei test.
-const GIRAFFE: Guest = preload("res://data/guests/giraffe.tres")
+const GIRAFFE: Guest = preload("res://tests/data/fixed_giraffe.tres")
 ## Seme fisso della fila usata nei test: con una sola specie l'ordine è comunque sempre lo stesso.
 const TEST_SEED: int = 1
 ## Punti di prova sulla parte interna delle quattro maniglie, come frazioni delle misure della camera.
@@ -861,3 +861,41 @@ func test_new_game_can_be_played() -> void:
 	_perform_inner_gesture(_point_in_room(ROOM_CENTER), ONE_CELL_UP)
 
 	assert_eq(_editor.room.cells, Rect2i(2, 3, 2, 2))
+
+
+## Un secondo dito sul pannello della luce non cambia nulla durante un gesto.
+func test_lighting_action_ignored_during_drag() -> void:
+	_editor.session.coins = HotelSession.SPECIAL_ROOM_PRICE
+	_begin_ceiling_drag()
+
+	_editor.apply_lighting_action(HotelSession.LightingAction.MAKE_DARK)
+
+	assert_eq(_editor.room.lighting, Need.Lighting.NORMAL)
+	assert_eq(_editor.session.coins, HotelSession.SPECIAL_ROOM_PRICE)
+
+
+## Le camere speciali e in lavori devono potersi disegnare, durante un gesto e fuori.
+func test_special_rooms_can_be_drawn() -> void:
+	_editor.session.coins = 100
+	_select_room()
+	_editor.apply_lighting_action(HotelSession.LightingAction.MAKE_DARK)
+	await wait_process_frames(2)
+
+	_editor.apply_lighting_action(HotelSession.LightingAction.RESTORE_WAIT)
+	await wait_process_frames(2)
+
+	assert_true(_editor.room.is_under_works)
+
+
+## Toccare una camera in lavori non fa entrare l'ospite.
+func test_room_under_works_refuses_guest() -> void:
+	_editor.session.coins = 100
+	_set_room_shape(Rect2i(2, 3, 2, 3))
+	_select_room_at_current_shape()
+	_editor.apply_lighting_action(HotelSession.LightingAction.MAKE_DARK)
+	_editor.apply_lighting_action(HotelSession.LightingAction.RESTORE_WAIT)
+
+	_tap_center_of_active_room()
+
+	assert_null(_editor.room.guest)
+	assert_eq(_editor.session.turns_played, 0)

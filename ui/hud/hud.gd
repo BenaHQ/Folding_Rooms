@@ -17,6 +17,8 @@ extends Control
 signal build_pressed
 ## Lanciato quando il giocatore conferma di voler ricominciare da zero.
 signal reset_confirmed
+## Lanciato quando il giocatore sceglie una modifica alla luce. action è una HotelSession.LightingAction.
+signal lighting_action_chosen(action: int)
 
 ## Distanza dai bordi dell'area sicura, in pixel.
 const MARGIN_PIXELS: float = 28.0
@@ -47,6 +49,8 @@ var _arrivals_left: int = 0
 @onready var _build_button: BuildButton = $BuildButton
 ## Il pulsante per ricominciare la partita.
 @onready var _reset_button: ResetButton = $ResetButton
+## I pulsanti per cambiare la luce della camera selezionata.
+@onready var _lighting_panel: LightingPanel = $LightingPanel
 
 
 ## Godot chiama _ready() quando il nodo e i suoi figli sono pronti. Il pulsante sta al centro dello
@@ -69,6 +73,13 @@ func _ready() -> void:
 	_reset_button.offset_top = row_y + BuildButton.HEIGHT_PIXELS / 2.0 + RESET_BUTTON_GAP_PIXELS
 	_reset_button.offset_bottom = _reset_button.offset_top + ResetButton.SIDE_PIXELS
 
+	# Il pannello della luce sta sulla stessa fascia, a sinistra.
+	_lighting_panel.action_chosen.connect(lighting_action_chosen.emit)
+	_lighting_panel.offset_left = MARGIN_PIXELS
+	_lighting_panel.offset_right = MARGIN_PIXELS + LightingPanel.TOTAL_WIDTH_PIXELS
+	_lighting_panel.offset_top = _reset_button.offset_top
+	_lighting_panel.offset_bottom = _reset_button.offset_bottom
+
 
 ## Aggiorna i numeri mostrati.
 func update_values(coins: int, turns: int, arrivals_left: int) -> void:
@@ -82,6 +93,11 @@ func update_values(coins: int, turns: int, arrivals_left: int) -> void:
 ## costruire e is_active se la modalità costruzione è attiva.
 func update_build_button(price: int, can_build: bool, is_active: bool) -> void:
 	_build_button.update_state(price, can_build, is_active)
+
+
+## Aggiorna il pannello della luce per la camera selezionata, oppure lo nasconde se room è null.
+func update_lighting_panel(room: Room, session: HotelSession) -> void:
+	_lighting_panel.update_for_room(room, session)
 
 
 ## Godot chiama _draw() per disegnare il nodo.

@@ -133,7 +133,7 @@ func _draw_current_card(guest: Guest, rect: Rect2) -> void:
 	_draw_guest_in(guest, figure_area)
 
 	var icon_center: Vector2 = rect.position + Vector2.ONE * (NEED_ICON_RADIUS_PIXELS + BORDER_PIXELS)
-	GuestPainter.draw_need_icon(self, guest.need.shape, icon_center, NEED_ICON_RADIUS_PIXELS)
+	GuestPainter.draw_need_icons(self, guest.need, icon_center, NEED_ICON_RADIUS_PIXELS)
 
 	# Tre righe centrate in altezza: turni di permanenza, compenso da comodo e da scomodo.
 	var column_x: float = figure_area.end.x + CARD_PADDING_PIXELS
@@ -164,7 +164,7 @@ func _draw_upcoming_card(guest: Guest, rect: Rect2) -> void:
 	_draw_guest_in(guest, rect)
 
 	var icon_center: Vector2 = rect.position + Vector2.ONE * (VALUE_ICON_RADIUS_PIXELS + BORDER_PIXELS)
-	GuestPainter.draw_need_icon(self, guest.need.shape, icon_center, VALUE_ICON_RADIUS_PIXELS)
+	GuestPainter.draw_need_icons(self, guest.need, icon_center, VALUE_ICON_RADIUS_PIXELS)
 
 
 ## Disegna il pulsante per rifiutare: la X dice il significato con una forma, senza testo.

@@ -190,3 +190,18 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Decisione:** un pulsante in alto a destra, sotto la riga dei numeri, riporta la partita all'inizio. Il primo tocco lo arma: mostra una spunta e un bordo rosso per 3 secondi. Il secondo tocco conferma. La partita nuova sostituisce subito quella salvata, senza possibilità di tornare indietro.
 - **Motivo:** Riccardo vuole poter ripartire da zero durante le prove; prima bisognava disinstallare l'app. La conferma evita di perdere la partita con un tocco per sbaglio.
 - **Deciso da:** Riccardo per il pulsante; Claude Code per posizione e conferma. Posizione e aspetto sono da rivedere con l'interfaccia definitiva della fase 8.
+
+## D-032 — 2026-11-04 — Luce e buio come camere speciali a pagamento
+
+- **Decisione:** la luce non dipende da dove sta la camera: è una caratteristica che si compra. Ogni camera nasce normale. Per 10 monete diventa buia, togliendo l'illuminazione, oppure ottiene le lampade speciali. Per tornare normale si scelgono 20 monete, subito, oppure gratis: la camera resta in lavori fino a fine giornata e non può ospitare nessuno. Il pipistrello vuole il buio e l'ospite vegetale le lampade, gli altri ospiti la luce normale. Con la luce sbagliata si entra, ma si paga il compenso da scomodo. Pipistrello e ospite vegetale arrivano dalla quarta camera in poi, dai sacchetti successivi. Comprare non consuma il turno.
+- **Scelte di Claude Code, da confermare provando:** la luce si può cambiare anche con un ospite dentro, per rimediare, ma i lavori richiedono una camera libera; da buia a lampade si passa da normale; tra i problemi di un ospite l'icona mostra prima la luce, poi la misura; un pannello con due pulsanti compare sotto la riga dei numeri quando una camera è selezionata. **Valori iniziali:** pipistrello entra da 1×1, sta bene da 1×2, 3 turni, 11 monete da comodo e 3 da scomodo; ospite vegetale entra da 1×1, sta bene da 2×1 con altezza massima 2, 3 turni, 11 e 3.
+- **Motivo:** Riccardo ha proposto questa regola al posto di quella che legava la luce alle pareti esterne: una camera speciale diventa un investimento, e servendo solo al suo ospite rende vera la scelta se tornare normale. Le monete hanno un altro uso.
+- **Deciso da:** Riccardo per la regola, i prezzi, le due vie di ritorno, gli ospiti comuni e la quarta camera.
+- **Differenza dal concept:** nella sezione 5 il buio viene da una stanza schermata o interna e la luce da una parete esterna. Il concept resta da aggiornare, con l'approvazione di Riccardo.
+- **Formato del salvataggio:** versione 3, senza conversione: i salvataggi precedenti vengono messi da parte.
+
+## D-033 — 2026-11-04 — Paga e permanenza variabili per ogni ospite
+
+- **Decisione:** ogni ospite in arrivo ha valori propri di permanenza e compenso, estratti entro un margine della sua specie, e la scheda mostra quelli. Margini iniziali, in più o in meno: permanenza 1 turno per tutti; compenso da comodo 2 monete, 1 per il ghiro; compenso da scomodo 1 moneta. Stare comodi rende sempre più che stare scomodi, anche nel caso peggiore (D-019). I valori restano nel salvataggio, e lo stesso seme dà gli stessi ospiti.
+- **Motivo:** Riccardo vuole che gli ospiti di una specie non siano tutti uguali.
+- **Deciso da:** Riccardo per gli intervalli; Claude Code per i margini, da bilanciare provando. I margini stanno in `data/guests/`.

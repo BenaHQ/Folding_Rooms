@@ -111,9 +111,10 @@ func move_room(room: Room, offset_cells: Vector2i) -> ResizePreview:
 	return preview
 
 
-## Fa entrare un ospite in una camera libera, se ci può entrare. Restituisce true se è entrato.
+## Fa entrare un ospite in una camera libera e non in lavori, se ci può entrare. La luce non conta: un
+## ospite con la luce sbagliata entra, ma non sta bene (D-032). Restituisce true se è entrato.
 func assign_guest(guest: Guest, room: Room) -> bool:
-	if room.guest != null or guest.need.evaluate(room.cells.size) == Need.Fit.DOES_NOT_FIT:
+	if room.guest != null or room.is_under_works or guest.need.evaluate(room.cells.size) == Need.Fit.DOES_NOT_FIT:
 		return false
 
 	room.guest = guest

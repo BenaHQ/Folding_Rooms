@@ -32,6 +32,8 @@ func _ready() -> void:
 	_guest_bar.refuse_pressed.connect(_room_editor.refuse_current_guest)
 	_hud.build_pressed.connect(_room_editor.toggle_build_mode)
 	_hud.reset_confirmed.connect(_start_new_game)
+	_hud.lighting_action_chosen.connect(_room_editor.apply_lighting_action)
+	_room_editor.selection_changed.connect(_refresh_interface)
 	_room_editor.session_changed.connect(_refresh_interface)
 	_room_editor.build_mode_changed.connect(_refresh_interface)
 	_load_game()
@@ -62,7 +64,7 @@ func _load_game() -> void:
 
 	var saved_session: HotelSession = null
 	if save.status == SaveFile.Status.LOADED:
-		saved_session = HotelSession.from_data(save.data, GuestQueue.PROTOTYPE_GUESTS)
+		saved_session = HotelSession.from_data(save.data, GuestQueue.PROTOTYPE_GUESTS, GuestQueue.LIGHT_GUESTS)
 
 	if saved_session != null:
 		_room_editor.restore_session(saved_session)
@@ -108,3 +110,4 @@ func _refresh_interface() -> void:
 	_guest_bar.update_queue(session.get_current_guest(), session.get_upcoming_guests())
 	_hud.update_values(session.coins, session.turns_played, session.arrivals_left)
 	_hud.update_build_button(session.get_new_room_price(), session.can_build_room(), _room_editor.is_building())
+	_hud.update_lighting_panel(_room_editor.get_selected_room(), session)

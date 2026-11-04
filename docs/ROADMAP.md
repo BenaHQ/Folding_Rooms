@@ -95,7 +95,9 @@
 - [x] Giornate con più arrivi, in base alle camere: prima le camere occupate non potevano superare 3 (D-029).
 - [x] Spostamento della camera intera trascinandola dal centro; le maniglie cambiano la forma (D-030).
 - [x] Pulsante per ricominciare da zero, con conferma (D-031).
-- [ ] Decisione: prossima funzione tra luce e buio, arredi funzionali, piani e scorrimento.
+- [x] Luce e buio: camere speciali comprate con le monete, pipistrello e ospite vegetale dalla quarta camera (D-032).
+- [x] Paga e permanenza variabili per ogni ospite, entro un margine per specie (D-033).
+- [ ] Decisione: prossima funzione tra arredi funzionali, piani e scorrimento, oppure una prima prova con una persona.
 
 ## Fase 7 — Prova con i giocatori
 
@@ -129,7 +131,7 @@
 
 - [ ] Piani (`Storey`) e scorrimento dell'edificio. Rischio: lo scorrimento non deve confondersi con il trascinamento delle pareti.
 - [ ] Arredi funzionali (`Furniture`) e decorazioni, tenuti separati.
-- [ ] Luce e buio: pipistrello e ospite vegetale.
+- [x] Luce e buio: pipistrello e ospite vegetale, anticipati alla fase 6b (D-032).
 - [ ] Servizi comuni (`Facility`), draghetto, ospite acquatico e sinergie.
 - [ ] Ricordi (`Keepsake`), ospiti che tornano e incarichi (`Task`).
 - [ ] Decisioni: numero di specie e monetizzazione, prima di bilanciare l'economia perché la condizionano.

@@ -221,3 +221,76 @@ func test_reset_button_disarms_after_waiting() -> void:
 	assert_false(_hud._reset_button.is_armed())
 	_press_reset_button()
 	assert_eq(_editor.session.coins, 50)
+
+
+## Seleziona la prima camera, passando dalla scena come farebbe un dito.
+func _select_first_room() -> void:
+	_editor._select_room(_editor.rooms[0])
+
+
+## Simula un dito che tocca un pulsante del pannello della luce.
+func _press_lighting_button(index: int) -> void:
+	var touch: InputEventScreenTouch = InputEventScreenTouch.new()
+	touch.pressed = true
+	touch.position = _hud._lighting_panel.get_button_rect(index).get_center()
+	_hud._lighting_panel._gui_input(touch)
+
+
+## Il pannello compare solo con una camera selezionata, e sparisce togliendo la selezione.
+func test_lighting_panel_follows_selection() -> void:
+	assert_false(_hud._lighting_panel.visible)
+
+	_select_first_room()
+	assert_true(_hud._lighting_panel.visible)
+
+	_editor.handle_back()
+	assert_false(_hud._lighting_panel.visible)
+
+
+## I pulsanti della luce sono comodi da toccare e non coprono gli altri comandi né le camere.
+func test_lighting_panel_size_and_position() -> void:
+	_select_first_room()
+	var panel: LightingPanel = _hud._lighting_panel
+	var rect: Rect2 = panel.get_global_rect()
+
+	assert_gte(panel.get_button_rect(0).size.x, MIN_TOUCH_PIXELS)
+	assert_gte(panel.get_button_rect(0).size.y, MIN_TOUCH_PIXELS)
+	assert_false(rect.intersects(_hud._reset_button.get_global_rect()))
+	assert_false(rect.intersects(_hud._build_button.get_global_rect()))
+	assert_lte(rect.end.y, _editor.get_envelope_origin().y)
+
+
+## Toccando il primo pulsante la camera diventa buia, si paga e l'interfaccia si aggiorna.
+func test_lighting_button_changes_room() -> void:
+	_editor.session.coins = HotelSession.SPECIAL_ROOM_PRICE
+	_editor.session_changed.emit()
+	_select_first_room()
+
+	_press_lighting_button(0)
+
+	assert_eq(_editor.rooms[0].lighting, Need.Lighting.DARK)
+	assert_eq(_hud._coins, 0)
+	assert_eq(_hud._lighting_panel._actions[0], HotelSession.LightingAction.RESTORE_PAID)
+
+
+## Senza monete il pulsante c'è, per mostrare il prezzo, ma non fa nulla.
+func test_lighting_button_without_coins_does_nothing() -> void:
+	_select_first_room()
+	assert_true(_hud._lighting_panel.visible)
+
+	_press_lighting_button(0)
+
+	assert_eq(_editor.rooms[0].lighting, Need.Lighting.NORMAL)
+
+
+## L'attesa è gratis: si può scegliere anche senza monete, e lascia la camera in lavori.
+func test_waiting_button_is_free() -> void:
+	_editor.session.coins = HotelSession.SPECIAL_ROOM_PRICE
+	_editor.session_changed.emit()
+	_select_first_room()
+	_press_lighting_button(0)
+
+	_press_lighting_button(1)
+
+	assert_true(_editor.rooms[0].is_under_works)
+	assert_false(_hud._lighting_panel.visible)

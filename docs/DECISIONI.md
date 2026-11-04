@@ -70,3 +70,43 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Decisione:** a camera selezionata si può trascinare da qualsiasi punto al suo interno. La direzione del dito dà l'asse e il punto toccato dà il lato: dalla metà alta si muove il soffitto, dalla bassa il pavimento, dalla sinistra la parete sinistra, dalla destra la parete destra. Nello stesso gesto, un verso fa crescere la camera e l'altro la rimpicciolisce.
 - **Motivo:** tutta la camera diventa un bersaglio e il dito non copre la parete che si sposta. Claude Code aveva raccomandato la variante in cui conta solo la direzione, che però da sola fa solo crescere la camera, perché qui toccando vicino al centro il risultato può invertirsi. Da verificare provando il gesto.
 - **Deciso da:** Riccardo. Per il momento ha scelto di tenere anche le maniglie, visibili e afferrabili dalla parte fuori dalla camera.
+
+## D-013 — 2026-11-04 — Telefono per la fase 3
+
+- **Decisione:** la prova della fase 3 si fa su iPhone. La prova Android è rinviata: Riccardo non ha un telefono Android e vorrebbe provare senza, se possibile.
+- **Motivo:** è l'unico telefono disponibile, e il progetto ora si sviluppa su un Mac con Xcode, quindi l'export iOS è possibile da subito. La scaletta prevedeva la prima build iOS in fase 8 e Android in fase 3.
+- **Deciso da:** Riccardo. Resta da decidere se installare un emulatore Android, che però non sostituisce la prova con un dito su un telefono vero.
+
+## D-014 — 2026-11-04 — Identificativo provvisorio dell'app
+
+- **Decisione:** per le prove si usa `com.benahq.foldingrooms.dev`. L'identificativo definitivo resta una decisione aperta, da prendere prima della pubblicazione.
+- **Deciso da:** Riccardo.
+
+## D-015 — 2026-11-04 — Posizione di Godot sul Mac
+
+- **Decisione:** l'editor sta in `/Applications/Godot.app`, fuori dalla cartella del progetto.
+- **Motivo:** dentro il progetto occupava 337 MB non ignorati da Git e Godot ne scansionava il contenuto a ogni import.
+- **Deciso da:** Riccardo.
+
+## D-016 — 2026-11-04 — Giudizio sul gesto
+
+- **Decisione:** Riccardo giudica il gesto direttamente sul telefono, al Cancello 1, senza una prova separata su PC.
+- **Deciso da:** Riccardo.
+
+## D-017 — 2026-11-04 — Cancello 1: gesto sul telefono
+
+- **Decisione:** il gesto è approvato, si prosegue con la scaletta. Nessuna regolazione di maniglie o elasticità per ora.
+- **Motivo:** provato su iPhone 15, Riccardo riferisce che funziona tutto e che il trascinamento è molto comodo.
+- **Deciso da:** Riccardo.
+
+## D-018 — 2026-11-04 — Esito della prova di stile
+
+- **Decisione:** la grafica delle camere si costruisce a strati, senza stirare nulla: motivi che si ripetono agganciati all'involucro, fasce di altezza fissa, arredi di misura fissa agganciati a un lato, che compaiono quando c'è spazio. Vale come base per la guida di stile della fase 8; il disegno della prova non è definitivo.
+- **Motivo:** provata sull'iPhone 15 con il gesto vero, Riccardo riferisce che regge; uno screenshot del telefono conferma una camera 1×3 disegnata correttamente. Fluidità non misurata.
+- **Deciso da:** Riccardo, su proposta di Claude Code.
+
+## D-019 — 2026-11-04 — Ospiti: su misura, non al minimo
+
+- **Decisione:** il gioco non premia il minimo spazio in cui un ospite entra. Ogni ospite ha una misura per entrare e una per stare bene; stipare un ospite è permesso, ma ha conseguenze visibili (reazione triste, permanenza più breve, nessun ricordo); una camera troppo grande non è sempre migliore. I compensi dipendono soprattutto dal benessere e nessun punteggio premia la densità di ospiti per cella.
+- **Motivo:** Riccardo ha osservato che ottimizzare lo spazio porta a ospiti stipati, come una giraffa in una camera 3×1, in contrasto con il concept, che promette ospiti felici e non ordini da smaltire. Il puzzle resta perché l'involucro è limitato.
+- **Deciso da:** Riccardo, su proposta di Claude Code. Misure ed economia precise restano da definire; l'efficacia è un'ipotesi da verificare nella fase 7.

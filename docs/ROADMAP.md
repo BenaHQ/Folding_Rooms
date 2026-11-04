@@ -40,20 +40,24 @@
 - [x] Rilascio: assestamento morbido se la modifica è valida, ritorno elastico se è rifiutata.
 - [x] Casi limite: secondo dito e tocco interrotto.
 - [x] Gesto dall'interno della camera: la metà toccata e l'asse del dito scelgono il lato (D-012).
-- [ ] Riccardo prova il gesto su PC e giudica se è piacevole: un test automatico non può dirlo.
+- [x] Riccardo giudica se il gesto è piacevole direttamente sul telefono, al Cancello 1, senza una prova separata su PC (D-016).
 
 ## Fase 3 — Prova su un telefono vero
 
 **Obiettivo:** il gesto funziona con un dito su uno schermo piccolo, non solo con il mouse.
 
-- [ ] Installare export templates 4.7.2, JDK e Android SDK. Le licenze le accetta Riccardo.
-- [ ] Decisione: identificativo dell'app. Proposta: `com.benahq.foldingrooms`. Va fissato prima della pubblicazione, perché cambiarlo dopo crea un'app diversa.
-- [ ] Installare sul telefono una prima build di debug, escludendo `addons/gut/` e `tests/` dall'export.
-- [ ] Regolare dimensione delle maniglie, elasticità, precisione e fluidità, e controllare che i gesti di sistema ai bordi dello schermo non disturbino le maniglie vicine.
+- [x] Decisione: la prova si fa su iPhone, l'unico telefono disponibile (D-013).
+- [x] Installare export templates 4.7.2. Xcode era già presente. JDK e Android SDK sono rinviati (D-013).
+- [x] Preparare l'export iOS, escludendo `addons/gut/` e `tests/`, e compilare per iPhone senza firma.
+- [ ] Decisione: identificativo definitivo dell'app. Per le prove si usa `com.benahq.foldingrooms.dev` (D-014). Va fissato prima della pubblicazione, perché cambiarlo dopo crea un'app diversa.
+- [x] Riccardo accede con il suo Apple ID in Xcode e collega l'iPhone.
+- [x] Installare sull'iPhone una prima build di debug firmata.
+- [x] Riccardo autorizza lo sviluppatore sull'iPhone e l'app si avvia.
+- [x] Regolare dimensione delle maniglie, elasticità, precisione e fluidità: nessuna regolazione necessaria su iPhone (D-017). I gesti di sistema ai bordi vanno ricontrollati su Android, dove i bordi laterali sono più sensibili.
 
-**Cancello 1:** Riccardo prova il gesto sul telefono. Se non convince si torna alla fase 2 e non si aggiunge altro.
+**Cancello 1:** superato il 2026-11-04 (D-017). Riccardo prova il gesto sul telefono. Se non convince si torna alla fase 2 e non si aggiunge altro.
 
-- [ ] Prova di stile: una sola camera disegnata con lo stile previsto (concept, sezione 9), deformata con il gesto vero sul telefono. Serve a capire come costruire la grafica perché si allunghi senza rovinarsi; il risultato si annota in `docs/DECISIONI.md`. Non è grafica definitiva.
+- [x] Prova di stile (esito in D-018): una sola camera disegnata con lo stile previsto (concept, sezione 9), deformata con il gesto vero sul telefono. Serve a capire come costruire la grafica perché si allunghi senza rovinarsi; il risultato si annota in `docs/DECISIONI.md`. Non è grafica definitiva.
 
 ## Fase 4 — Due camere vicine
 
@@ -68,9 +72,9 @@
 **Obiettivo:** la forma della camera ha uno scopo.
 
 - [ ] Decisione: terzo ospite. Giraffa e serpente sono nel concept, gli altri suoi ospiti hanno bisogni ambientali. Proposta: un ospite piccolo che vuole una camera raccolta, così «più grande» non è sempre meglio.
-- [ ] `Guest` e `Need` come `Resource` in `data/`, regola «bisogno soddisfatto» con test.
+- [ ] `Guest` e `Need` come `Resource` in `data/`, regola con due soglie, «entra» e «sta bene» (D-019), con test.
 - [ ] Icona del bisogno e sagoma dell'ospite durante il trascinamento.
-- [ ] Assegnazione e reazione dell'ospite, con un'animazione semplice.
+- [ ] Assegnazione e reazione dell'ospite, con un'animazione semplice, diversa se l'ospite è stipato o sta bene (D-019).
 
 ## Fase 6 — Salvataggio
 
@@ -84,7 +88,7 @@
 
 **Obiettivo:** capire se il nucleo regge con chi non conosce il gioco.
 
-- [ ] Far provare la build a 3–5 persone, senza spiegazioni, osservandole con le domande del concept, sezione 11.
+- [ ] Far provare la build a 3–5 persone, senza spiegazioni, osservandole con le domande del concept, sezione 11. In più: chi stipa gli ospiti lo fa per scelta, e come si sente quando li vede (D-019)?
 - [ ] Annotare i risultati in `docs/PROVE_GIOCATORI.md` e correggere i problemi emersi.
 
 **Cancello 2:** Riccardo decide se proseguire, cambiare le regole o tornare indietro.
@@ -114,7 +118,7 @@
 - [ ] Servizi comuni (`Facility`), draghetto, ospite acquatico e sinergie.
 - [ ] Ricordi (`Keepsake`), ospiti che tornano e incarichi (`Task`).
 - [ ] Decisioni: numero di specie e monetizzazione, prima di bilanciare l'economia perché la condizionano.
-- [ ] Bilanciamento dell'economia.
+- [ ] Bilanciamento dell'economia: compensi legati soprattutto al benessere, nessun premio alla densità di ospiti (D-019).
 - [ ] Decisioni e sviluppo: finale, contenuti successivi, salvataggi remoti.
 
 ## Fase 10 — Pubblicazione

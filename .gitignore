@@ -13,3 +13,6 @@ builds/
 *.jks
 *.p12
 *.mobileprovision
+
+# File di sistema di macOS: non fanno parte del progetto.
+.DS_Store

@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/room_editor/room_editor.gd" id="1_room_editor"]
+[ext_resource type="Script" path="res://ui/hud/build_button.gd" id="2_build_button"]
+
+[node name="RoomEditor" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_room_editor")
+
+[node name="StoreyButton" type="Control" parent="."]
+visible = false
+layout_mode = 0
+script = ExtResource("2_build_button")
+icon = 2

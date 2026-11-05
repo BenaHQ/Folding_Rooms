@@ -1,7 +1,7 @@
 # IA e crediti: chi fa cosa, cosa si dichiara
 
 Come si usa l'intelligenza artificiale in Folding Rooms, cosa resta lavoro di persone e come lo si
-comunica ai giocatori. Vale per tutti gli agenti che lavorano al progetto. Decisione D-008.
+comunica ai giocatori. Vale per tutti gli agenti che lavorano al progetto. Decisione D-039.
 
 Legenda: ✅ deciso · 🟡 proposta da confermare con Riccardo.
 

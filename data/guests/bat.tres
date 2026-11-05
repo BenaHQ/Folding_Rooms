@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="Guest" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://core/guest.gd" id="1_guest"]
+[ext_resource type="Script" path="res://core/need.gd" id="2_need"]
+
+[sub_resource type="Resource" id="Resource_need"]
+script = ExtResource("2_need")
+shape = 0
+enter_size = Vector2i(1, 1)
+comfortable_min_size = Vector2i(1, 2)
+lighting = 1
+
+[resource]
+script = ExtResource("1_guest")
+id = "bat"
+need = SubResource("Resource_need")
+stay_turns = 2
+comfortable_pay = 11
+uncomfortable_pay = 3
+stay_turns_spread = 1
+comfortable_pay_spread = 2
+uncomfortable_pay_spread = 1
+body_size_cells = Vector2(0.6, 0.9)
+body_color = Color(0.42, 0.34, 0.52, 1)

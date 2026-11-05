@@ -2,7 +2,7 @@
 
 Ogni agente aggiorna questo file a fine sessione: riscrive «Adesso» e «Prossimi passi» e aggiunge una riga in cima al registro.
 
-**Ultimo aggiornamento:** 2026-11-03 — Claude Code (Opus 5.5)
+**Ultimo aggiornamento:** 2026-11-05 — Claude Code (Opus 5.5)
 
 ## Adesso
 
@@ -23,5 +23,6 @@ Ogni agente aggiorna questo file a fine sessione: riscrive «Adesso» e «Prossi
 
 | Data | Agente | Fatto | Verificato |
 |---|---|---|---|
+| 2026-11-05 | Claude Code (Opus 5.5) | Aggiunta `docs/ANALISI_MERCATO.md` (analisi di mercato rapida) | Fonti web consultate; nessun codice toccato |
 | 2026-11-03 | Claude Code (Opus 5.5) | Fissata la versione di Godot; inizializzato Git con remote, `.gitignore` e `.gitattributes`; primo commit e push su `main` | Regole di esclusione e fine riga provate |
 | 2026-11-02 | Claude Code (Opus 5.5) | Creati `AGENTS.md`, `CLAUDE.md`, `docs/STATO.md` e `docs/DECISIONI.md` | Regole di caricamento e dati di store controllati sulle fonti; l'esempio GDScript non è stato eseguito perché Godot non è installato |

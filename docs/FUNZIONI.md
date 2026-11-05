@@ -82,7 +82,7 @@ Stato: 💡 idea da valutare, non ancora decisa · 🟡 da progettare · 🔵 in
     al tetto smette di crescere e non si perde nulla: è un motivo gentile per tornare ogni giorno;
   - il direttore è un ospite di quell'hotel, per esempio la giraffa che diventa direttrice. Usa
     personaggi che esistono già e dà un ricordo affettivo (concept, sezione 6);
-  - una pubblicità facoltativa raddoppia la raccolta (`Gaming-Business`, modello mobile);
+  - una pubblicità facoltativa raddoppia la raccolta (`docs/business/MERCATO.md`);
   - l'hotel completato resta giocabile in modo libero.
 - **Rischi:**
   - se la rendita è troppo alta, rende facili gli hotel nuovi: il tetto deve valere al massimo

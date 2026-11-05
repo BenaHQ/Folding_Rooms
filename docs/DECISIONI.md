@@ -249,3 +249,9 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Decisione:** adottare `docs/IA_E_CREDITI.md` come regola comune su uso dell'IA, ruoli, registro degli asset e trasparenza verso i giocatori; aggiunte a `docs/CREDITI.md` le sezioni su persone e strumenti IA. Deciso: codice e grafica provvisoria dagli agenti IA, grafica definitiva con forte aiuto dell'IA, musica di un amico musicista, dichiarare l'uso dell'IA fin dall'inizio. Restano proposte (🟡 nel documento): ospiti e icona da una persona, frase di dichiarazione, dove pubblicarla.
 - **Motivo:** evitare che i giocatori scoprano l'uso dell'IA dopo essersi affezionati al progetto; proteggere gli asset (L. 132/2025) e chiarire i diritti sulla musica.
 - **Deciso da:** Riccardo, su proposta di Claude Code.
+
+## D-040 — 2026-11-05 — Documenti di business nel repository del gioco
+
+- **Decisione:** tutto ciò che riguarda Folding Rooms sta in questo repository. Analisi di mercato, costo per installazione, pubblicità e acquisti in app, stime del primo anno, piano di promozione e scenari del simulatore sono in `docs/business/`, spostati da `Gaming-Business`. Lì restano il simulatore, che è uno strumento comune a tutti i giochi e legge gli scenari da `docs/business/scenari/`, le assunzioni di mercato comuni, il fisco generale e il confronto tra i progetti.
+- **Motivo:** Riccardo non vuole dati dello stesso progetto sparsi in più repository.
+- **Deciso da:** Riccardo per il principio; Claude Code per la cartella e per lasciare il simulatore in `Gaming-Business`, invece di copiarlo qui.

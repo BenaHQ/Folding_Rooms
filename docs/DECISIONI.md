@@ -36,3 +36,9 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 
 - **Decisione:** il repository del progetto è https://github.com/BenaHQ/Folding_Rooms, con `project.godot` destinato alla radice.
 - **Deciso da:** Riccardo per il repository; la posizione di `project.godot` resta la proposta di `AGENTS.md`, sezione 6.
+
+## D-007 — 2026-11-05 — Condivisione di una foto dell'hotel
+
+- **Decisione:** aggiungere alle funzioni del gioco un pulsante per condividere un'immagine del proprio hotel o di una camera. Dettagli e punti aperti in `docs/FUNZIONI.md`, voce F-001.
+- **Motivo:** ogni hotel è diverso; le immagini condivise dai giocatori fanno conoscere il gioco senza costi di pubblicità.
+- **Deciso da:** Riccardo, su proposta di Claude Code.

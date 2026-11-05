@@ -42,3 +42,9 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Decisione:** aggiungere alle funzioni del gioco un pulsante per condividere un'immagine del proprio hotel o di una camera. Dettagli e punti aperti in `docs/FUNZIONI.md`, voce F-001.
 - **Motivo:** ogni hotel è diverso; le immagini condivise dai giocatori fanno conoscere il gioco senza costi di pubblicità.
 - **Deciso da:** Riccardo, su proposta di Claude Code.
+
+## D-008 — 2026-11-05 — Politica su IA e crediti
+
+- **Decisione:** adottare `docs/IA_E_CREDITI.md` come regola comune su uso dell'IA, ruoli, registro degli asset e trasparenza verso i giocatori; creato `docs/CREDITI.md`. Deciso: codice e grafica provvisoria dagli agenti IA, grafica definitiva con forte aiuto dell'IA, musica di un amico musicista, dichiarare l'uso dell'IA fin dall'inizio. Restano proposte (🟡 nel documento): ospiti e icona da una persona, frase di dichiarazione, dove pubblicarla.
+- **Motivo:** evitare che i giocatori scoprano l'uso dell'IA dopo essersi affezionati al progetto; proteggere gli asset (L. 132/2025) e chiarire i diritti sulla musica.
+- **Deciso da:** Riccardo, su proposta di Claude Code.

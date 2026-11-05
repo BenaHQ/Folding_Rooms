@@ -24,7 +24,7 @@ script = ExtResource("2_build_button")
 [node name="PoolButton" type="Control" parent="."]
 layout_mode = 1
 script = ExtResource("2_build_button")
-shows_pool = true
+icon = 1
 
 [node name="ResetButton" type="Control" parent="."]
 layout_mode = 1

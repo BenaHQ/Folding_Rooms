@@ -139,7 +139,7 @@ func test_interface_follows_building() -> void:
 
 	_editor.session.coins = HotelSession.FIRST_NEW_ROOM_PRICE
 	_editor.toggle_build_mode()
-	var free_cell: Vector2 = _editor.get_envelope_origin() + Vector2.ONE
+	var free_cell: Vector2 = _editor.get_envelope_origin() + Vector2(1.0, (Envelope.PROTOTYPE_HEIGHT_CELLS - 0.5) * RoomEditor.CELL_SIZE_PIXELS)
 	var touch: InputEventScreenTouch = InputEventScreenTouch.new()
 	touch.pressed = true
 	touch.position = free_cell
@@ -311,7 +311,7 @@ func test_pool_button_size_and_position() -> void:
 ## Il pulsante attiva la scelta della cella; costruita la piscina, sparisce.
 func test_pool_button_toggles_and_disappears_when_built() -> void:
 	assert_true(_hud._pool_button.visible)
-	assert_true(_hud._pool_button.shows_pool)
+	assert_eq(_hud._pool_button.icon, BuildButton.Icon.POOL)
 	assert_eq(_hud._pool_button._price, HotelSession.POOL_PRICE)
 	assert_false(_hud._pool_button._can_build)
 
@@ -326,6 +326,7 @@ func test_pool_button_toggles_and_disappears_when_built() -> void:
 	assert_true(_hud._pool_button._is_active)
 	assert_false(_hud._build_button._is_active)
 
-	_editor._handle_build_press(_editor.get_envelope_origin() + Vector2.ONE)
+	# Una cella dell'ultima fila: i piani più in alto sono ancora chiusi.
+	_editor._handle_build_press(_editor.get_envelope_origin() + Vector2(1.0, (Envelope.PROTOTYPE_HEIGHT_CELLS - 0.5) * RoomEditor.CELL_SIZE_PIXELS))
 	assert_false(_hud._pool_button.visible)
 	await wait_seconds(RoomEditor.SETTLE_SECONDS)

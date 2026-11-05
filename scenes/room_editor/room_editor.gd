@@ -9,6 +9,7 @@ extends Control
 ## turno (D-026, D-029). In modalità costruzione segna le celle libere: toccandone
 ## una si compra una nuova camera (D-028) o la piscina (D-036). Disegna la luce di ogni camera (D-032)
 ## e, sulle camere attaccate alla piscina, l'icona del bonus, anche per il risultato di un gesto in corso.
+## Sul tetto mostra il pulsante per comprare il prossimo piano (D-037).
 ## CHI LA USA: la scena principale main.tscn, che la contiene come nodo figlio.
 ## PERCHÉ È SEPARATA: tiene insieme disegno e tocco. Le regole stanno in Grid e il
 ## calcolo del gesto in RoomDrag e RoomMove, così si possono provare senza grafica. Questa scena
@@ -143,6 +144,13 @@ const WORKS_ROOM_TINT: Color = Color(0.45, 0.43, 0.42, 0.55)
 ## Raggio dell'icona della luce nell'angolo in alto a destra di una camera, in pixel.
 const LIGHTING_BADGE_RADIUS_PIXELS: float = 22.0
 
+## Piani ancora chiusi: uno sfondo leggero e righe tratteggiate invece della griglia, così la differenza
+## non dipende solo dal colore.
+const CLOSED_STOREY_COLOR: Color = Color(0.62, 0.55, 0.47, 0.1)
+const CLOSED_STOREY_LINE_COLOR: Color = Color(0.62, 0.55, 0.47, 0.45)
+## Lunghezza di un tratto di quelle righe, in pixel.
+const CLOSED_STOREY_DASH_PIXELS: float = 10.0
+
 ## Raggio dell'icona della piscina nell'angolo in basso a sinistra di una camera, in pixel.
 const POOL_BADGE_RADIUS_PIXELS: float = 22.0
 ## Spessore della barra su quell'icona quando l'ospite non riceve il bonus, in pixel.
@@ -206,6 +214,10 @@ var _is_building: bool = false
 ## Che cosa costruisce quel tocco: NONE per una camera, oppure un servizio comune.
 var _build_facility: Room.Facility = Room.Facility.NONE
 
+## Il pulsante per comprare il prossimo piano. @onready assegna la variabile appena i nodi sono pronti e
+## $Nome trova il nodo figlio con quel nome.
+@onready var _storey_button: BuildButton = $StoreyButton
+
 
 ## Godot chiama _ready() una sola volta, quando il nodo entra nella scena: qui si crea
 ## lo stato iniziale.
@@ -213,6 +225,8 @@ func _ready() -> void:
 	# Le immagini di RoomPainter sono piccole e devono ripetersi invece di fermarsi al bordo.
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 
+	_storey_button.pressed.connect(_buy_storey)
+	session_changed.connect(_update_storey_button)
 	start_new_game()
 
 
@@ -232,7 +246,8 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_cancel_drag()
 	elif what == NOTIFICATION_RESIZED:
-		# La forma dello schermo è cambiata: l'involucro va ricentrato.
+		# La forma dello schermo è cambiata: l'involucro va ricentrato, e con lui il pulsante.
+		_update_storey_button()
 		queue_redraw()
 
 
@@ -316,7 +331,7 @@ func start_new_game() -> void:
 	_shown_earnings = {}
 	_reacting_room = null
 
-	_grid = Grid.new(Envelope.new())
+	_grid = Grid.new(Envelope.new(Envelope.PROTOTYPE_WIDTH_CELLS, Envelope.PROTOTYPE_HEIGHT_CELLS, HotelSession.STARTING_STOREYS))
 	rooms.clear()
 	_painters.clear()
 	_visual_rects.clear()
@@ -406,6 +421,39 @@ func get_handle_position(side: Room.MovableSide) -> Vector2:
 			return center + Vector2(0.0, half_size.y) + bend
 
 
+## Compra il prossimo piano. Durante un gesto non fa nulla: un secondo dito sul pulsante non deve
+## cambiare la partita. HotelSession decide se è possibile e lo fa pagare.
+func _buy_storey() -> void:
+	if _drag != null or _is_recognizing_gesture:
+		return
+
+	if session.build_storey():
+		session_changed.emit()
+		queue_redraw()
+
+
+## Mette il pulsante del prossimo piano sopra il tetto e decide se mostrarlo. Sparisce durante un gesto
+## o una costruzione, che ignorerebbero il tocco, e quando è selezionata una camera attaccata al tetto:
+## coprirebbe la sua maniglia e le icone dell'ospite. Un nodo nascosto non riceve tocchi.
+func _update_storey_button() -> void:
+	# Prima di _ready(), o all'avvio, il pulsante o la partita possono non esistere ancora.
+	if not is_node_ready() or session == null:
+		return
+
+	var open_cells: Rect2i = _grid.get_envelope_cells()
+	var is_blocked: bool = _drag != null or _is_recognizing_gesture or _is_building
+	var covers_handle: bool = _is_room_selected and room.cells.position.y == open_cells.position.y
+	_storey_button.visible = _grid.get_closed_storeys() > 0 and not is_blocked and not covers_handle
+
+	# Il pulsante sta al centro del primo piano chiuso: la riga subito sopra quelle aperte.
+	var button_size: Vector2 = Vector2(BuildButton.WIDTH_PIXELS, BuildButton.HEIGHT_PIXELS)
+	var row_center_y: float = (open_cells.position.y - 0.5) * CELL_SIZE_PIXELS
+	var center: Vector2 = get_envelope_origin() + Vector2(_get_envelope_size().x / 2.0, row_center_y)
+	_storey_button.size = button_size
+	_storey_button.position = center - button_size / 2.0
+	_storey_button.update_state(session.get_new_storey_price(), session.can_build_storey(), false)
+
+
 ## Crea una camera iniziale. La posizione rispetta le regole per costruzione: se non fosse
 ## così sarebbe un errore di programmazione da far notare subito.
 func _add_initial_room(cells: Rect2i) -> void:
@@ -477,6 +525,7 @@ func _handle_press(touch: InputEventScreenTouch) -> void:
 		_pressed_handle = _find_handle_at(touch.position)
 		_drag_finger_index = touch.index
 		_drag_start_position = touch.position
+		_update_storey_button()
 		return
 
 	# Le maniglie della camera attiva sporgono sopra la vicina e hanno la precedenza su di essa.
@@ -536,6 +585,7 @@ func _set_build_mode(active: bool, facility: Room.Facility = Room.Facility.NONE)
 
 	_is_building = active
 	_build_facility = facility
+	_update_storey_button()
 	build_mode_changed.emit()
 	queue_redraw()
 
@@ -659,6 +709,7 @@ func _set_room_selected(selected: bool) -> void:
 
 	_is_room_selected = selected
 	selection_changed.emit()
+	_update_storey_button()
 
 	# create_tween() crea un'animazione legata a questo nodo; tween_method() chiama più
 	# volte la funzione indicata con un valore che va da quello iniziale a quello finale.
@@ -687,6 +738,7 @@ func _start_gesture(gesture: RoomGesture, finger_index: int, start_position: Vec
 	_drag_finger_index = finger_index
 	_drag_start_position = start_position
 	_finger_position = start_position
+	_update_storey_button()
 	queue_redraw()
 
 
@@ -751,6 +803,7 @@ func _clear_drag() -> void:
 	_is_recognizing_gesture = false
 	_pressed_handle = NONE
 	_drag_finger_index = NONE
+	_update_storey_button()
 
 
 ## Anima il disegno dalla forma attuale alla forma vera delle camere. Questa animazione è
@@ -852,25 +905,38 @@ func _get_envelope_size() -> Vector2:
 	return Vector2(Envelope.PROTOTYPE_WIDTH_CELLS, Envelope.PROTOTYPE_HEIGHT_CELLS) * CELL_SIZE_PIXELS
 
 
-## Disegna l'involucro e le linee della griglia. Se il dito tenta di uscire, il bordo
-## cambia colore e diventa più spesso, per mostrare qual è il limite.
+## Disegna l'involucro: i piani aperti con le linee della griglia, quelli chiusi sopra di loro con le
+## righe tratteggiate. Se il dito tenta di uscire, il bordo dei piani aperti cambia colore e diventa più
+## spesso, per mostrare qual è il limite.
 func _draw_envelope(origin: Vector2) -> void:
-	var envelope_size: Vector2 = _get_envelope_size()
-	draw_rect(Rect2(origin, envelope_size), ENVELOPE_COLOR)
+	var open_cells: Rect2i = _grid.get_envelope_cells()
+	var open_rect: Rect2 = _cells_to_pixels(open_cells)
+	open_rect.position += origin
+	_draw_closed_storeys(origin, open_cells.position.y)
+	draw_rect(open_rect, ENVELOPE_COLOR)
 
 	# Durante il trascinamento le celle si vedono meglio, per aiutare la precisione.
 	var line_color: Color = GRID_LINE_DRAG_COLOR if _drag != null else GRID_LINE_COLOR
-	for column: int in range(1, Envelope.PROTOTYPE_WIDTH_CELLS):
+	for column: int in range(open_cells.position.x + 1, open_cells.end.x):
 		var x: float = origin.x + column * CELL_SIZE_PIXELS
-		draw_line(Vector2(x, origin.y), Vector2(x, origin.y + envelope_size.y), line_color, THIN_LINE_PIXELS)
-	for row: int in range(1, Envelope.PROTOTYPE_HEIGHT_CELLS):
+		draw_line(Vector2(x, open_rect.position.y), Vector2(x, open_rect.end.y), line_color, THIN_LINE_PIXELS)
+	for row: int in range(open_cells.position.y + 1, open_cells.end.y):
 		var y: float = origin.y + row * CELL_SIZE_PIXELS
-		draw_line(Vector2(origin.x, y), Vector2(origin.x + envelope_size.x, y), line_color, THIN_LINE_PIXELS)
+		draw_line(Vector2(open_rect.position.x, y), Vector2(open_rect.end.x, y), line_color, THIN_LINE_PIXELS)
 
 	var is_leaving: bool = _drag != null and _drag.preview.rejection == ResizePreview.Rejection.OUTSIDE_ENVELOPE
 	var border_color: Color = INVALID_COLOR if is_leaving else ENVELOPE_BORDER_COLOR
 	var border_width: float = THICK_LINE_PIXELS if is_leaving else THIN_LINE_PIXELS
-	draw_rect(Rect2(origin, envelope_size), border_color, false, border_width)
+	draw_rect(open_rect, border_color, false, border_width)
+
+
+## Disegna i piani ancora chiusi, dalla cima dell'edificio fino a first_open_row, la prima riga aperta.
+func _draw_closed_storeys(origin: Vector2, first_open_row: int) -> void:
+	var width_pixels: float = _get_envelope_size().x
+	for row: int in first_open_row:
+		var top_left: Vector2 = origin + Vector2(0.0, row * CELL_SIZE_PIXELS)
+		draw_rect(Rect2(top_left, Vector2(width_pixels, CELL_SIZE_PIXELS)), CLOSED_STOREY_COLOR)
+		draw_dashed_line(top_left, top_left + Vector2(width_pixels, 0.0), CLOSED_STOREY_LINE_COLOR, THIN_LINE_PIXELS, CLOSED_STOREY_DASH_PIXELS)
 
 
 ## Segna le celle dove si può costruire: uno sfondo e il simbolo «+», così il segno non dipende solo

@@ -16,6 +16,8 @@ extends RefCounted
 ## PISCINA (D-036): un servizio comune che si compra una sola volta, nasce da 1 cella e si allarga gratis
 ## con il gesto, sottraendo spazio alle camere. Chi sta bene in una camera attaccata paga di più. Non
 ## conta tra le camere: non cambia gli arrivi, il prezzo delle camere né lo sblocco degli ospiti.
+## PIANI (D-037): una partita parte con una parte dei piani aperti, e gli altri si comprano uno alla
+## volta, a prezzo crescente. Non consumano il turno e non contano come camere.
 ## NOTA GDSCRIPT: «extends RefCounted» crea un oggetto che non compare nella scena.
 
 ## Le modifiche alla luce di una camera che il giocatore può scegliere.
@@ -51,10 +53,17 @@ const POOL_PRICE: int = 50
 const POOL_DAILY_BONUS: int = 3
 ## Misure di una piscina appena costruita, in celle.
 const NEW_POOL_SIZE_CELLS: Vector2i = Vector2i.ONE
+## Piani aperti all'inizio di una partita: la giraffa ha spazio per alzarsi, ma la griglia non è tutta libera.
+const STARTING_STOREYS: int = 5
+## Prezzo del primo piano comprato, in monete: il doppio della prima camera.
+const FIRST_NEW_STOREY_PRICE: int = 60
+## Di quante monete sale il prezzo per ogni piano già comprato.
+const NEW_STOREY_PRICE_STEP: int = 30
 ## Nomi dei campi nel salvataggio.
 const COINS_KEY: String = "coins"
 const TURNS_PLAYED_KEY: String = "turns_played"
 const ARRIVALS_LEFT_KEY: String = "arrivals_left"
+const STOREYS_KEY: String = "storeys"
 const ROOMS_KEY: String = "rooms"
 const QUEUE_KEY: String = "queue"
 const ROOM_X_KEY: String = "x"
@@ -192,6 +201,29 @@ static func get_pool_bonus(fit: Need.Fit, room_cells: Rect2i, pool_cells: Rect2i
 	return 0
 
 
+## Restituisce il prezzo del prossimo piano, in monete: FIRST_NEW_STOREY_PRICE per il primo, poi
+## NEW_STOREY_PRICE_STEP in più per ogni piano già comprato. Si ricava dai piani aperti. Non modifica nulla.
+func get_new_storey_price() -> int:
+	# maxi() sceglie il maggiore: una griglia con meno piani iniziali non dà uno sconto.
+	var built_storeys: int = maxi(_grid.get_open_storeys() - STARTING_STOREYS, 0)
+	return FIRST_NEW_STOREY_PRICE + NEW_STOREY_PRICE_STEP * built_storeys
+
+
+## Restituisce true se ora si può comprare un piano: ne resta uno da aprire e le monete bastano.
+func can_build_storey() -> bool:
+	return _grid.get_closed_storeys() > 0 and coins >= get_new_storey_price()
+
+
+## Compra il prossimo piano e ne sottrae il prezzo. Il turno continua. Restituisce false, senza cambiare
+## nulla, se non si può.
+func build_storey() -> bool:
+	if not can_build_storey():
+		return false
+
+	coins -= get_new_storey_price()
+	return _grid.add_storey()
+
+
 ## Restituisce le modifiche alla luce possibili ora per una camera, anche se le monete non bastano.
 ## Un ospite non impedisce di cambiare luce, per rimediare a una scelta; impedisce solo i lavori,
 ## perché una camera in lavori non può ospitare nessuno.
@@ -258,6 +290,7 @@ func to_data() -> Dictionary:
 		COINS_KEY: coins,
 		TURNS_PLAYED_KEY: turns_played,
 		ARRIVALS_LEFT_KEY: arrivals_left,
+		STOREYS_KEY: _grid.get_open_storeys(),
 		ROOMS_KEY: room_entries,
 		QUEUE_KEY: _queue.to_data(),
 	}
@@ -273,7 +306,12 @@ static func from_data(data: Dictionary, species: Array[Guest], late_species: Arr
 	if not room_entries is Array or (room_entries as Array).is_empty() or not queue_data is Dictionary:
 		return null
 
-	var grid: Grid = Grid.new(Envelope.new())
+	# I piani vanno letti prima delle camere: una camera in un piano chiuso è fuori dall'edificio.
+	var saved_storeys: int = SaveFile.read_count(data, STOREYS_KEY)
+	if saved_storeys < 1 or saved_storeys > Envelope.PROTOTYPE_HEIGHT_CELLS:
+		return null
+
+	var grid: Grid = Grid.new(Envelope.new(Envelope.PROTOTYPE_WIDTH_CELLS, Envelope.PROTOTYPE_HEIGHT_CELLS, saved_storeys))
 	for entry: Variant in room_entries:
 		if not entry is Dictionary or not _add_room_from_data(grid, entry, species + late_species):
 			return null

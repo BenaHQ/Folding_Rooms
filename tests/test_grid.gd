@@ -497,3 +497,44 @@ func test_pool_reshapes_with_the_room_rules() -> void:
 	assert_eq(grid.resize_room(pool, Room.MovableSide.LEFT_WALL, -1).rejection, ResizePreview.Rejection.OUTSIDE_ENVELOPE)
 	assert_true(grid.move_room(pool, Vector2i(0, 3)).is_valid())
 	assert_eq(pool.cells, Rect2i(0, 3, 2, 1))
+
+
+## Senza indicazioni l'involucro è tutto aperto: nessun piano da comprare.
+func test_default_envelope_has_all_storeys_open() -> void:
+	var envelope: Envelope = Envelope.new()
+
+	assert_eq(envelope.get_cells(), Rect2i(0, 0, 6, 8))
+	assert_eq(envelope.get_closed_storeys(), 0)
+	assert_false(envelope.add_storey())
+
+
+## I piani aperti sono quelli in basso, e ogni nuovo piano si aggiunge in cima (D-037).
+func test_storeys_open_from_the_bottom_up() -> void:
+	var envelope: Envelope = Envelope.new(6, 8, 5)
+
+	assert_eq(envelope.get_cells(), Rect2i(0, 3, 6, 5))
+	assert_eq(envelope.get_closed_storeys(), 3)
+	assert_false(envelope.contains(Rect2i(0, 2, 1, 1)))
+
+	assert_true(envelope.add_storey())
+
+	assert_eq(envelope.get_cells(), Rect2i(0, 2, 6, 6))
+	assert_true(envelope.contains(Rect2i(0, 2, 1, 1)))
+
+
+## Una camera non entra in un piano chiuso; aperto il piano, può salirci. Le camere non si spostano.
+func test_room_can_grow_into_storey_only_once_open() -> void:
+	var grid: Grid = Grid.new(Envelope.new(6, 8, 5))
+	var room: Room = Room.new(Rect2i(0, 3, 2, 2))
+	assert_true(grid.add_room(room))
+
+	assert_eq(grid.resize_room(room, Room.MovableSide.CEILING, -1).rejection, ResizePreview.Rejection.OUTSIDE_ENVELOPE)
+	assert_false(grid.add_room(Room.new(Rect2i(3, 2, 1, 1))))
+	assert_false(grid.get_free_cells().has(Vector2i(3, 2)))
+
+	assert_true(grid.add_storey())
+
+	assert_eq(room.cells, Rect2i(0, 3, 2, 2))
+	assert_true(grid.get_free_cells().has(Vector2i(3, 2)))
+	assert_true(grid.resize_room(room, Room.MovableSide.CEILING, -1).is_valid())
+	assert_eq(room.cells, Rect2i(0, 2, 2, 3))

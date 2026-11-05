@@ -157,12 +157,28 @@ func get_pool() -> Room:
 	return null
 
 
-## Restituisce tutte le celle dell'involucro, come rettangolo in celle.
+## Restituisce le celle dei piani aperti dell'involucro, come rettangolo in celle.
 func get_envelope_cells() -> Rect2i:
 	return _envelope.get_cells()
 
 
-## Restituisce le celle dell'involucro non occupate da nessuna camera, riga per riga.
+## Restituisce quanti piani sono aperti.
+func get_open_storeys() -> int:
+	return _envelope.get_open_storeys()
+
+
+## Restituisce quanti piani restano da aprire.
+func get_closed_storeys() -> int:
+	return _envelope.get_closed_storeys()
+
+
+## Apre un piano in cima all'edificio. Le camere non si muovono. Restituisce false se erano già aperti
+## tutti.
+func add_storey() -> bool:
+	return _envelope.add_storey()
+
+
+## Restituisce le celle dei piani aperti non occupate da nessuna camera, riga per riga.
 func get_free_cells() -> Array[Vector2i]:
 	var envelope_cells: Rect2i = _envelope.get_cells()
 	var free_cells: Array[Vector2i] = []

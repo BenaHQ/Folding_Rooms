@@ -810,3 +810,52 @@ func test_reshaping_pool_changes_bonus_at_day_end() -> void:
 
 	assert_eq(pool.cells, Rect2i(4, 2, 2, 4))
 	assert_eq(report.earnings[room], GIRAFFE.comfortable_pay + HotelSession.POOL_DAILY_BONUS)
+
+
+## Crea una partita su un hotel con i piani iniziali, con una sola camera e le monete indicate.
+func _make_storey_session(coins: int) -> HotelSession:
+	var grid: Grid = Grid.new(Envelope.new(Envelope.PROTOTYPE_WIDTH_CELLS, Envelope.PROTOTYPE_HEIGHT_CELLS, HotelSession.STARTING_STOREYS))
+	assert_true(grid.add_room(Room.new(Rect2i(0, 7, 1, 1))))
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new([DORMOUSE] as Array[Guest], TEST_SEED))
+	session.coins = coins
+	return session
+
+
+## I piani costano 60, 90 e 120 monete, e dopo l'ultimo non ce ne sono altri (D-037).
+func test_storey_prices_rise_until_all_are_open() -> void:
+	var session: HotelSession = _make_storey_session(1000)
+
+	for expected_price: int in [60, 90, 120]:
+		var coins_before: int = session.coins
+		assert_eq(session.get_new_storey_price(), expected_price)
+		assert_true(session.build_storey())
+		assert_eq(session.coins, coins_before - expected_price)
+
+	assert_eq(session.get_grid().get_open_storeys(), Envelope.PROTOTYPE_HEIGHT_CELLS)
+	assert_false(session.can_build_storey())
+	assert_false(session.build_storey())
+	assert_eq(session.coins, 1000 - 60 - 90 - 120)
+
+
+## Senza monete non cambia nulla.
+func test_storey_refused_without_coins() -> void:
+	var session: HotelSession = _make_storey_session(HotelSession.FIRST_NEW_STOREY_PRICE - 1)
+
+	assert_false(session.can_build_storey())
+	assert_false(session.build_storey())
+	assert_eq(session.get_grid().get_open_storeys(), HotelSession.STARTING_STOREYS)
+	assert_eq(session.coins, HotelSession.FIRST_NEW_STOREY_PRICE - 1)
+
+
+## Un piano non consuma la giornata e non conta come camera: arrivi e prezzo delle camere non cambiano.
+func test_storey_keeps_day_arrivals_and_room_price() -> void:
+	var session: HotelSession = _make_storey_session(HotelSession.FIRST_NEW_STOREY_PRICE)
+	var room_price: int = session.get_new_room_price()
+	var arrivals: int = session.arrivals_left
+
+	assert_true(session.build_storey())
+
+	assert_eq(session.turns_played, 0)
+	assert_eq(session.arrivals_left, arrivals)
+	assert_eq(session.get_daily_arrivals(), arrivals)
+	assert_eq(session.get_new_room_price(), room_price)

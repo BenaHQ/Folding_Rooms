@@ -229,3 +229,11 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Differenza dalla scaletta:** una interazione era prevista dopo la prova con i giocatori (fase 7, Cancello 2). Riccardo la anticipa, come ha rinviato la prova (D-028).
 - **Formato del salvataggio:** versione 4, senza conversione: i salvataggi precedenti vengono messi da parte.
 - **Bilanciamento non misurato:** la simulazione con il giocatore automatico non è stata rifatta con la piscina.
+
+## D-037 — 2026-11-05 — Piani acquistabili
+
+- **Decisione:** una partita nuova parte con 5 piani aperti su 8. Gli altri 3 si comprano uno alla volta per 60, 90 e 120 monete, con un pulsante sul tetto. Un nuovo piano si apre in cima, le camere non si muovono e possono salirci. Non serve scorrere: tutti gli 8 piani stanno già nello schermo.
+- **Motivo:** Riccardo vuole ampliare l'hotel in altezza e con più facciate. Lo spazio non pesava, perché nelle partite simulate si arrivava a circa 9 camere solo dopo 20 giorni: con meno piani all'inizio l'ampliamento conta prima, senza il rischio che lo scorrimento si confonda con il gesto. Le facciate sono la tappa successiva, al posto dello scorrimento.
+- **Deciso da:** Riccardo per l'ampliamento in due tappe, i 5 piani iniziali e la serie di prezzi. Con 5 piani il quarto prezzo proposto, 150, non si raggiunge. Claude Code per i dettagli, da confermare provando: il piano non consuma la giornata, non cambia arrivi, prezzo delle camere né sblocco degli ospiti; le camere iniziali restano dove sono, con un piano libero sopra di loro; il pulsante sta sopra il tetto e sparisce quando è selezionata una camera attaccata al tetto, per non coprire la maniglia.
+- **Controllo:** giocatore automatico, 40 partite da 40 giorni, che compra le camere appena può e un piano quando restano meno di 6 celle libere: 5,5 piani in media nei giorni 11-20, 7 nei giorni 21-40; rifiutati 12%, 9% e 6% nei giorni 4-10, 11-20 e 21-40. Non compra la piscina e sceglie male, quindi i numeri indicano solo l'ordine di grandezza.
+- **Formato del salvataggio:** versione 5, senza conversione: i salvataggi precedenti vengono messi da parte.

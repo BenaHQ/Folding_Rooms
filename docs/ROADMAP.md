@@ -99,7 +99,8 @@
 - [x] Paga e permanenza variabili per ogni ospite, entro un margine per specie (D-033).
 - [x] Progressione più semplice: meno arrivi e permanenze più brevi (D-034).
 - [x] Piscina: primo servizio comune, con un bonus per chi sta bene nelle camere attaccate (D-036).
-- [ ] Decisione: prossima funzione tra arredi funzionali, piani e scorrimento, ricordi e ospiti di ritorno, oppure una prima prova con una persona.
+- [x] Piani comprati con le monete, da 5 a 8, senza scorrimento (D-037).
+- [ ] Facciate: altre griglie dello stesso edificio, al posto dello scorrimento verticale (D-037). Da decidere: che cosa le rende diverse, come si cambia facciata, come si vede ciò che succede sulle altre.
 
 ## Fase 7 — Prova con i giocatori
 
@@ -131,7 +132,7 @@
 
 **Obiettivo:** la progressione del concept, sezioni 5–8. Si procede un blocco alla volta, con una piccola prova alla fine di ognuno. Ogni nuovo componente grafico segue `docs/STILE.md`.
 
-- [ ] Piani (`Storey`) e scorrimento dell'edificio. Rischio: lo scorrimento non deve confondersi con il trascinamento delle pareti.
+- [ ] Piani (`Storey`) oltre gli 8 e scorrimento dell'edificio, solo se le facciate non bastano (D-037). Rischio: lo scorrimento non deve confondersi con il trascinamento delle pareti.
 - [ ] Arredi funzionali (`Furniture`) e decorazioni, tenuti separati.
 - [x] Luce e buio: pipistrello e ospite vegetale, anticipati alla fase 6b (D-032).
 - [ ] Servizi comuni (`Facility`), draghetto, ospite acquatico e sinergie. La piscina è anticipata alla fase 6b (D-036).

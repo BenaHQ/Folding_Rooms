@@ -247,14 +247,14 @@ func test_built_room_is_restored_in_scene() -> void:
 	var first: MainWithoutQuit = _launch()
 	var first_editor: RoomEditor = _editor_of(first)
 	first_editor.session.coins = HotelSession.FIRST_NEW_ROOM_PRICE
-	first_editor.session.build_room(Vector2i(0, 0))
+	first_editor.session.build_room(Vector2i(0, 7))
 	first.propagate_notification(NOTIFICATION_APPLICATION_PAUSED)
 
 	var editor: RoomEditor = _editor_of(_launch())
 
 	assert_eq(editor.rooms.size(), 3)
 	assert_true(editor._painters.has(editor.rooms[2]))
-	assert_eq(editor._visual_rects[editor.rooms[2]], editor._cells_to_pixels(Rect2i(0, 0, 1, 1)))
+	assert_eq(editor._visual_rects[editor.rooms[2]], editor._cells_to_pixels(Rect2i(0, 7, 1, 1)))
 	await wait_process_frames(2)
 	assert_eq(editor.session.coins, 0)
 
@@ -276,7 +276,7 @@ func test_loaded_game_can_be_reset() -> void:
 	var first: MainWithoutQuit = _launch()
 	var first_editor: RoomEditor = _editor_of(first)
 	first_editor.session.coins = HotelSession.FIRST_NEW_ROOM_PRICE
-	first_editor.session.build_room(Vector2i(0, 0))
+	first_editor.session.build_room(Vector2i(0, 7))
 	first.propagate_notification(NOTIFICATION_APPLICATION_PAUSED)
 	var second: MainWithoutQuit = _launch()
 
@@ -306,7 +306,7 @@ func test_pool_is_restored_in_scene() -> void:
 	var first: MainWithoutQuit = _launch()
 	var first_editor: RoomEditor = _editor_of(first)
 	first_editor.session.coins = HotelSession.POOL_PRICE
-	first_editor.session.build_pool(Vector2i(0, 0))
+	first_editor.session.build_pool(Vector2i(0, 7))
 	first.propagate_notification(NOTIFICATION_APPLICATION_PAUSED)
 
 	var second: MainWithoutQuit = _launch()
@@ -318,5 +318,20 @@ func test_pool_is_restored_in_scene() -> void:
 		return
 
 	assert_true(editor._painters[pool] is PoolPainter)
-	assert_eq(editor._visual_rects[pool], editor._cells_to_pixels(Rect2i(0, 0, 1, 1)))
+	assert_eq(editor._visual_rects[pool], editor._cells_to_pixels(Rect2i(0, 7, 1, 1)))
 	assert_false((second.get_node("Hud") as Hud)._pool_button.visible)
+
+
+## Dopo il caricamento i piani comprati restano aperti e il prezzo del prossimo non riparte da capo.
+func test_bought_storey_is_restored() -> void:
+	var first: MainWithoutQuit = _launch()
+	var first_editor: RoomEditor = _editor_of(first)
+	first_editor.session.coins = HotelSession.FIRST_NEW_STOREY_PRICE
+	assert_true(first_editor.session.build_storey())
+	first.propagate_notification(NOTIFICATION_APPLICATION_PAUSED)
+
+	var editor: RoomEditor = _editor_of(_launch())
+
+	assert_eq(editor.session.get_grid().get_open_storeys(), HotelSession.STARTING_STOREYS + 1)
+	assert_eq(editor.session.get_new_storey_price(), HotelSession.FIRST_NEW_STOREY_PRICE + HotelSession.NEW_STOREY_PRICE_STEP)
+	assert_true(editor._storey_button.visible)

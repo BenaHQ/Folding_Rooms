@@ -689,9 +689,9 @@ func test_applied_drag_notifies_session_changed() -> void:
 func test_dragging_center_moves_whole_room() -> void:
 	_select_room()
 
-	_perform_inner_gesture(_point_in_room(ROOM_CENTER), Vector2(-2.0, -3.0) * RoomEditor.CELL_SIZE_PIXELS)
+	_perform_inner_gesture(_point_in_room(ROOM_CENTER), Vector2(-2.0, -1.0) * RoomEditor.CELL_SIZE_PIXELS)
 
-	assert_eq(_editor.room.cells, Rect2i(0, 1, 2, 2))
+	assert_eq(_editor.room.cells, Rect2i(0, 3, 2, 2))
 	assert_true(_editor.is_room_selected())
 
 
@@ -972,3 +972,91 @@ func test_pool_moves_with_the_room_gesture() -> void:
 
 	assert_eq(pool.cells, Rect2i(0, 5, 1, 1))
 	await wait_seconds(RoomEditor.SETTLE_SECONDS + ANIMATION_MARGIN_SECONDS)
+
+
+## Una partita nuova parte con i piani iniziali, e il pulsante del prossimo piano sta sopra il tetto,
+## senza coprire le celle aperte. È abbastanza grande per il dito.
+func test_new_game_shows_storey_button_above_roof() -> void:
+	var grid: Grid = _editor.session.get_grid()
+	var button: BuildButton = _editor._storey_button
+	assert_eq(grid.get_open_storeys(), HotelSession.STARTING_STOREYS)
+	assert_true(button.visible)
+	assert_eq(button.icon, BuildButton.Icon.STOREY)
+	assert_gte(button.size.y, MIN_TOUCH_PIXELS)
+	assert_gte(button.size.x, MIN_TOUCH_PIXELS)
+
+	var roof_y: float = _editor.get_envelope_origin().y + grid.get_envelope_cells().position.y * RoomEditor.CELL_SIZE_PIXELS
+	assert_lte(button.position.y + button.size.y, roof_y)
+	assert_gte(button.position.y, roof_y - RoomEditor.CELL_SIZE_PIXELS)
+
+
+## Il pulsante compra il piano; senza monete non fa nulla. Il pulsante sale con il tetto.
+func test_storey_button_buys_storey_and_moves_up() -> void:
+	var grid: Grid = _editor.session.get_grid()
+	var button: BuildButton = _editor._storey_button
+	var start_y: float = button.position.y
+	var touch: InputEventScreenTouch = InputEventScreenTouch.new()
+	touch.pressed = true
+
+	button._gui_input(touch)
+	assert_eq(grid.get_open_storeys(), HotelSession.STARTING_STOREYS)
+
+	_editor.session.coins = HotelSession.FIRST_NEW_STOREY_PRICE
+	button._gui_input(touch)
+
+	assert_eq(grid.get_open_storeys(), HotelSession.STARTING_STOREYS + 1)
+	assert_eq(_editor.session.coins, 0)
+	assert_eq(button.position.y, start_y - RoomEditor.CELL_SIZE_PIXELS)
+
+
+## Aperti tutti i piani, il pulsante sparisce.
+func test_storey_button_hidden_when_all_open() -> void:
+	_editor.session.coins = 1000
+	while _editor.session.can_build_storey():
+		_editor._buy_storey()
+
+	assert_eq(_editor.session.get_grid().get_closed_storeys(), 0)
+	assert_false(_editor._storey_button.visible)
+
+
+## Il pulsante non deve coprire la maniglia di una camera attaccata al tetto; riappare deselezionandola.
+func test_storey_button_hidden_when_selected_room_touches_roof() -> void:
+	var button: BuildButton = _editor._storey_button
+	_select_room()
+	assert_true(button.visible, "una riga libera sopra la camera: la maniglia non arriva al pulsante")
+
+	_set_room_shape(Rect2i(2, _editor.session.get_grid().get_envelope_cells().position.y, 2, 3))
+	_editor._set_room_selected(false)
+	_select_room_at_current_shape()
+	assert_false(button.visible)
+
+	_editor._set_room_selected(false)
+	assert_true(button.visible)
+
+
+## Durante un gesto o una costruzione il pulsante non c'è, e chiamarlo non compra nulla.
+func test_storey_not_bought_during_gesture_or_build_mode() -> void:
+	_editor.session.coins = HotelSession.FIRST_NEW_STOREY_PRICE + HotelSession.FIRST_NEW_ROOM_PRICE
+	_editor.toggle_build_mode()
+	assert_false(_editor._storey_button.visible)
+	_editor.toggle_build_mode()
+	assert_true(_editor._storey_button.visible)
+
+	_begin_ceiling_drag()
+	assert_false(_editor._storey_button.visible)
+	_editor._buy_storey()
+
+	assert_eq(_editor.session.get_grid().get_open_storeys(), HotelSession.STARTING_STOREYS)
+
+
+## In modalità costruzione una cella di un piano chiuso non si può comprare: il tocco annulla soltanto.
+func test_cannot_build_in_closed_storey() -> void:
+	_enter_build_mode()
+
+	var cell: Vector2i = Vector2i(0, 0)
+	_touch(FIRST_FINGER, _cell_center(cell), true)
+	_touch(FIRST_FINGER, _cell_center(cell), false)
+
+	assert_false(_editor.is_building())
+	assert_eq(_editor.rooms.size(), HotelSession.STARTING_ROOMS)
+	assert_eq(_editor.session.coins, HotelSession.FIRST_NEW_ROOM_PRICE)

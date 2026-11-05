@@ -224,6 +224,21 @@ static func draw_pool_icon(canvas: CanvasItem, center: Vector2, radius: float) -
 		canvas.draw_polyline(wave, INK_COLOR, LINE_PIXELS / 2.0, true)
 
 
+## Disegna l'icona dei piani: una casetta, con il tetto sopra il piano. Le misure sono frazioni del raggio.
+static func draw_storey_icon(canvas: CanvasItem, center: Vector2, radius: float) -> void:
+	_draw_badge(canvas, center, radius)
+	var house: PackedVector2Array = PackedVector2Array([
+		center + Vector2(-0.4, 0.5) * radius,
+		center + Vector2(-0.4, -0.05) * radius,
+		center + Vector2(0.0, -0.55) * radius,
+		center + Vector2(0.4, -0.05) * radius,
+		center + Vector2(0.4, 0.5) * radius,
+		center + Vector2(-0.4, 0.5) * radius,
+	])
+	canvas.draw_polyline(house, INK_COLOR, LINE_PIXELS / 2.0, true)
+	canvas.draw_line(center + Vector2(-0.4, -0.05) * radius, center + Vector2(0.4, -0.05) * radius, INK_COLOR, LINE_PIXELS / 2.0, true)
+
+
 ## Disegna un viso in un'icona: sorridente se is_happy è true, triste altrimenti.
 static func draw_mood_icon(canvas: CanvasItem, center: Vector2, radius: float, is_happy: bool) -> void:
 	_draw_badge(canvas, center, radius)

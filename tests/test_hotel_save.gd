@@ -29,6 +29,7 @@ const VALID_DATA: Dictionary = {
 	"coins": 17.0,
 	"turns_played": 5.0,
 	"arrivals_left": 1.0,
+	"storeys": 5.0,
 	"rooms": [
 		{"x": 2.0, "y": 4.0, "width": 2.0, "height": 2.0, "lighting": "normal"},
 		{"x": 4.0, "y": 4.0, "width": 2.0, "height": 3.0, "lighting": "normal", "guest": {"id": "giraffe", "stay_turns": 3.0, "comfortable_pay": 11.0, "uncomfortable_pay": 4.0}, "turns_left": 2.0},
@@ -496,7 +497,7 @@ func test_normal_room_has_no_facility_field() -> void:
 ## Un servizio scritto male, una seconda piscina o una piscina che le regole non permetterebbero rendono
 ## il file non valido.
 func test_invalid_pool_is_rejected() -> void:
-	var pool: Dictionary = {"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0, "lighting": "normal", "facility": "pool"}
+	var pool: Dictionary = {"x": 0.0, "y": 3.0, "width": 1.0, "height": 1.0, "lighting": "normal", "facility": "pool"}
 	assert_not_null(HotelSession.from_data(_data_with_room(pool), SPECIES), "una piscina valida è accettata")
 
 	for bad_name: Variant in ["spa", 1.0, null, true, []]:
@@ -526,3 +527,37 @@ func test_game_with_only_a_pool_is_rejected() -> void:
 	data["rooms"] = [{"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0, "lighting": "normal", "facility": "pool"}]
 
 	assert_null(HotelSession.from_data(data, SPECIES))
+
+
+## I piani aperti tornano uguali, e con loro il prezzo del prossimo piano (D-037).
+func test_storeys_survive_saving() -> void:
+	var grid: Grid = Grid.new(Envelope.new(Envelope.PROTOTYPE_WIDTH_CELLS, Envelope.PROTOTYPE_HEIGHT_CELLS, HotelSession.STARTING_STOREYS))
+	assert_true(grid.add_room(Room.new(Rect2i(0, 7, 1, 1))))
+	var session: HotelSession = HotelSession.new(grid, GuestQueue.new(SPECIES, TEST_SEED))
+	session.coins = HotelSession.FIRST_NEW_STOREY_PRICE
+	assert_true(session.build_storey())
+
+	var data: Dictionary = JSON.parse_string(JSON.stringify(session.to_data()))
+	var restored: HotelSession = HotelSession.from_data(data, SPECIES)
+
+	assert_not_null(restored)
+	if restored == null:
+		return
+
+	assert_eq(restored.get_grid().get_open_storeys(), HotelSession.STARTING_STOREYS + 1)
+	assert_eq(restored.get_new_storey_price(), session.get_new_storey_price())
+
+
+## Un numero di piani impossibile rende il file non valido.
+func test_invalid_storeys_are_rejected() -> void:
+	for bad_storeys: Variant in [0.0, 9.0, -1.0, 1.5, "5", null]:
+		var data: Dictionary = VALID_DATA.duplicate(true)
+		data["storeys"] = bad_storeys
+		assert_null(HotelSession.from_data(data, SPECIES), str(bad_storeys))
+
+
+## Una camera in un piano chiuso è fuori dall'edificio: il file non è valido.
+func test_room_in_closed_storey_is_rejected() -> void:
+	var entry: Dictionary = {"x": 0.0, "y": 2.0, "width": 1.0, "height": 1.0, "lighting": "normal"}
+
+	assert_null(HotelSession.from_data(_data_with_room(entry), SPECIES))

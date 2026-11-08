@@ -2,7 +2,7 @@
 
 Ogni agente aggiorna questo file a fine sessione: riscrive «Adesso» e «Prossimi passi» e aggiunge una riga in cima al registro.
 
-**Ultimo aggiornamento:** 2026-11-05 — Claude Code (Opus 5.5)
+**Ultimo aggiornamento:** 2026-11-08 — Claude Code (Opus 5.5)
 
 ## Adesso
 
@@ -38,6 +38,11 @@ Ogni agente aggiorna questo file a fine sessione: riscrive «Adesso» e «Prossi
 
 ## Prossimi passi
 
+**Da fare subito alla ripresa, prima di ogni altra cosa (richiesta di Riccardo):** le tre modifiche decise il 2026-11-08, ognuna con test e prova nel simulatore. Ordine proposto, da confermare: prima D-042, che cambia le regole; poi D-043, che cambia il gesto; infine D-041, che cambia il ritmo e va ricontrollata con il giocatore automatico.
+- **D-041:** arrivi legati alla giornata, 4 arrivi al giorno dalla giornata 25. Proporre a Riccardo le tappe intermedie.
+- **D-042:** camera occupata bloccata, niente spostamenti, deformazioni o spinte; bonus della piscina deciso all'ingresso. Chiedere se la luce si può ancora cambiare con l'ospite dentro.
+- **D-043:** maniglie ai quattro angoli al posto dei lati, più piccole, area sensibile ridotta di poco sotto i 48 dp, per scelta di Riccardo, che la giudicherà sul telefono.
+
 1. Riccardo prova piani e piscina e decide se tenere prezzi, bonus e limite a una sola piscina (D-036, D-037). Prima delle facciate (`docs/ROADMAP.md`, fase 6b), decidere se adottare capitoli, livelli e più hotel (`docs/FUNZIONI.md`, F-002): cambia che cosa sono le facciate e la struttura della partita.
 2. Riccardo valuta la proposta grafica in `docs/STILE.md`; se confermata, applicarla prima a una camera e alla scheda ospite, verificando griglia, testi e maniglie sul telefono. La fase 8 non è completata da questa esplorazione.
 3. Restano le prove di camere speciali, pipistrello, ospite vegetale e valori variabili nel simulatore; una prima prova con una persona resta rinviata (D-028).
@@ -49,6 +54,7 @@ Ogni agente aggiorna questo file a fine sessione: riscrive «Adesso» e «Prossi
 
 | Data | Agente | Fatto | Verificato |
 |---|---|---|---|
+| 2026-11-08 | Claude Code (Opus 5.5) | Registrate D-041 (arrivi legati alla giornata), D-042 (camera occupata bloccata, bonus della piscina all'ingresso), D-043 (maniglie agli angoli) come primo lavoro della prossima sessione | Solo documenti; nessun codice toccato, Godot non disponibile in questa sessione |
 | 2026-11-05 | Claude Code (Opus 5.5) | Spostati da `Gaming-Business` in `docs/business/` mercato e stime (`MERCATO.md`), piano di promozione (`PROMOZIONE.md`), fonti (`FONTI.md`) e scenari del simulatore (`scenari/`) (D-040) | Solo documenti; nessun file del progetto Godot toccato, `docs/` è già escluso da Godot. Il simulatore di `Gaming-Business` legge gli scenari da qui e dà gli stessi risultati di prima; 39 test su 39 passano lì |
 | 2026-11-05 | Claude Code (Opus 5.5) | Sul branch `claude/exciting-hawking-cxyoi4`, unito `feature/piani` con i documenti scritti oggi partendo da un `main` vecchio: condivisione (D-038, era D-007), politica su IA e crediti (D-039, era D-008, `docs/IA_E_CREDITI.md`), persone e strumenti IA aggiunti a `docs/CREDITI.md`. Aggiunte a `docs/FUNZIONI.md` le idee F-002 (capitoli, livelli e più hotel) e F-003 (rendita degli hotel completati) | Solo documenti; nessun codice toccato. Godot non disponibile in questa sessione: test non eseguiti, ma nessun file del progetto Godot è cambiato rispetto a `feature/piani` |
 | 2026-11-05 | Claude Code (Opus 5.5), Godot 4.7.2 | Piani comprati con le monete, da 5 a 8, pulsante sul tetto, salvataggio alla versione 5 (D-037) | Import e controllo degli script senza errori; 300 test su 300 passano; 3 difetti introdotti apposta vengono scoperti dai test; giocatore automatico (D-037). Nel simulatore iPhone 17, con tocchi simulati e un salvataggio di prova: piano comprato, monete da 70 a 10 e prezzo da 60 a 90; soffitto alzato di 2 celle fin nel nuovo piano; pulsante nascosto con la camera selezionata attaccata al tetto e di nuovo visibile, barrato, dopo la deselezione; dopo Home e chiusura tutto riprende uguale. Salvataggio di prova cancellato. Non provati: tocco vero, iPhone fisico, compere con la piscina nella simulazione |

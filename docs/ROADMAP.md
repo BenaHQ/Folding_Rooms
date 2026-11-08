@@ -100,6 +100,9 @@
 - [x] Progressione più semplice: meno arrivi e permanenze più brevi (D-034).
 - [x] Piscina: primo servizio comune, con un bonus per chi sta bene nelle camere attaccate (D-036).
 - [x] Piani comprati con le monete, da 5 a 8, senza scorrimento (D-037).
+- [ ] Da fare subito: camera occupata bloccata e bonus della piscina deciso all'ingresso (D-042).
+- [ ] Da fare subito: maniglie agli angoli, più piccole (D-043).
+- [ ] Da fare subito: arrivi legati alla giornata, 4 al giorno dalla giornata 25 (D-041).
 - [ ] Facciate: altre griglie dello stesso edificio, al posto dello scorrimento verticale (D-037). Da decidere: che cosa le rende diverse, come si cambia facciata, come si vede ciò che succede sulle altre.
 
 ## Fase 7 — Prova con i giocatori

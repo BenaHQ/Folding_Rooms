@@ -1,0 +1,15 @@
+# Folding Rooms su telefono, gratis con pubblicità e acquisti in app (free-to-play), senza
+# pubblicità a pagamento per acquisire utenti. Numeri IPOTETICI da sostituire con dati veri.
+nome = "Folding Rooms — mobile gratis, pubblicità + acquisti in app"
+descrizione = "Folding Rooms gratis su App Store e Google Play, con pubblicità e acquisti in app, senza comprare utenti. 25.000 installazioni nel primo anno da sole, cioè da store, passaparola e video sui social (intervallo 1.000–200.000): è il numero più incerto. Pubblicità leggera, adatta a un gioco cozy: 2 video a premio al giorno per utente attivo (monete, arredi, ospiti speciali) e 2 annunci interstiziali (per esempio tra un livello e l'altro, se si adotta la struttura a livelli: F-002 in docs/FUNZIONI.md, da decidere). Acquisti in app: rimozione della pubblicità, pacchetti di arredi e decorazioni. Spese di 800 € tra gli account sviluppatore (Apple 99 $ l'anno, Google 25 $), asset e musica: il Mac con Xcode c'è già e le build per iPhone funzionano. Circa 900 ore tue (intervallo 500–2.000), ipotesi del 2026-11-05: il codice lo scrivono gli agenti IA e il prototipo è arrivato alla fase 6b in tre giorni, ma restano grafica definitiva, livelli e hotel, negozio interno, consenso alla pubblicità (GDPR), prove, promozione e aggiornamenti dopo il lancio. Da sostituire con le ore registrate davvero. Regime forfettario, perché la pubblicità è un'attività commerciale. Rischio di abbandono del 35%, sceso dal 45% perché il gesto ha superato il Cancello 1 sul telefono (D-017) e il prototipo è giocabile."
+installazioni_organiche = { valore = 25000, min = 1000, max = 200000 }
+budget_ua_mese = 0
+annunci_premio_giorno = { valore = 2, min = 1, max = 3 }
+annunci_interstiziali_giorno = { valore = 2, min = 1, max = 4 }
+quota_apple = 0.4
+spese_eur = 800
+ore_sviluppo = { valore = 900, min = 500, max = 2000 }
+prob_abbandono = 0.35
+regime = "forfettario"
+eta = 23
+altro_reddito = 0

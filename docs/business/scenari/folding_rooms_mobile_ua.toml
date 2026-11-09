@@ -1,0 +1,16 @@
+# Come folding_rooms_mobile, ma con 300 € al mese di pubblicità a pagamento per acquisire utenti.
+# Serve a vedere se comprare installazioni conviene: dipende dal confronto tra valore di
+# un'installazione e costo per installazione (CPI).
+nome = "Folding Rooms — mobile gratis, con 300 €/mese di acquisizione utenti"
+descrizione = "Lo stesso gioco gratis con pubblicità e acquisti in app, più 300 € al mese (3.600 € l'anno) di campagne pubblicitarie per comprare installazioni, al costo per installazione medio del casual puzzle in Europa. Serve a rispondere a una domanda: ogni euro speso per acquisire un giocatore torna indietro entro il primo anno? Conviene solo se un'installazione vale più di quanto costa. Con la retention di un gioco medio di solito non succede: per questo i giochi free-to-play passano mesi a migliorare la retention prima di spendere in pubblicità."
+installazioni_organiche = { valore = 25000, min = 1000, max = 200000 }
+budget_ua_mese = 300
+annunci_premio_giorno = { valore = 2, min = 1, max = 3 }
+annunci_interstiziali_giorno = { valore = 2, min = 1, max = 4 }
+quota_apple = 0.4
+spese_eur = 800
+ore_sviluppo = { valore = 1000, min = 600, max = 2100 }
+prob_abbandono = 0.35
+regime = "forfettario"
+eta = 23
+altro_reddito = 0

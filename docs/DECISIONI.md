@@ -237,3 +237,55 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Deciso da:** Riccardo per l'ampliamento in due tappe, i 5 piani iniziali e la serie di prezzi. Con 5 piani il quarto prezzo proposto, 150, non si raggiunge. Claude Code per i dettagli, da confermare provando: il piano non consuma la giornata, non cambia arrivi, prezzo delle camere né sblocco degli ospiti; le camere iniziali restano dove sono, con un piano libero sopra di loro; il pulsante sta sopra il tetto e sparisce quando è selezionata una camera attaccata al tetto, per non coprire la maniglia.
 - **Controllo:** giocatore automatico, 40 partite da 40 giorni, che compra le camere appena può e un piano quando restano meno di 6 celle libere: 5,5 piani in media nei giorni 11-20, 7 nei giorni 21-40; rifiutati 12%, 9% e 6% nei giorni 4-10, 11-20 e 21-40. Non compra la piscina e sceglie male, quindi i numeri indicano solo l'ordine di grandezza.
 - **Formato del salvataggio:** versione 5, senza conversione: i salvataggi precedenti vengono messi da parte.
+
+## D-038 — 2026-11-05 — Condivisione di una foto dell'hotel
+
+- **Decisione:** aggiungere alle funzioni del gioco un pulsante per condividere un'immagine del proprio hotel o di una camera. Dettagli e punti aperti in `docs/FUNZIONI.md`, voce F-001.
+- **Motivo:** ogni hotel è diverso; le immagini condivise dai giocatori fanno conoscere il gioco senza costi di pubblicità.
+- **Deciso da:** Riccardo, su proposta di Claude Code.
+
+## D-039 — 2026-11-05 — Politica su IA e crediti
+
+- **Decisione:** adottare `docs/IA_E_CREDITI.md` come regola comune su uso dell'IA, ruoli, registro degli asset e trasparenza verso i giocatori; aggiunte a `docs/CREDITI.md` le sezioni su persone e strumenti IA. Deciso: codice e grafica provvisoria dagli agenti IA, grafica definitiva con forte aiuto dell'IA, musica di un amico musicista, dichiarare l'uso dell'IA fin dall'inizio. Restano proposte (🟡 nel documento): ospiti e icona da una persona, frase di dichiarazione, dove pubblicarla.
+- **Motivo:** evitare che i giocatori scoprano l'uso dell'IA dopo essersi affezionati al progetto; proteggere gli asset (L. 132/2025) e chiarire i diritti sulla musica.
+- **Deciso da:** Riccardo, su proposta di Claude Code.
+
+## D-040 — 2026-11-05 — Documenti di business nel repository del gioco
+
+- **Decisione:** tutto ciò che riguarda Folding Rooms sta in questo repository. Analisi di mercato, costo per installazione, pubblicità e acquisti in app, stime del primo anno, piano di promozione e scenari del simulatore sono in `docs/business/`, spostati da `Gaming-Business`. Lì restano il simulatore, che è uno strumento comune a tutti i giochi e legge gli scenari da `docs/business/scenari/`, le assunzioni di mercato comuni, il fisco generale e il confronto tra i progetti.
+- **Motivo:** Riccardo non vuole dati dello stesso progetto sparsi in più repository.
+- **Deciso da:** Riccardo per il principio; Claude Code per la cartella e per lasciare il simulatore in `Gaming-Business`, invece di copiarlo qui.
+
+## D-041 — 2026-11-08 — Arrivi legati alla giornata
+
+- **Decisione:** gli arrivi al giorno non dipendono più dal numero di camere, ma dal numero della giornata. Si arriva a 4 arrivi al giorno alla giornata 25.
+- **Motivo:** Riccardo vuole un gioco più impegnativo. Con la formula di D-034 servivano 10 camere per avere 4 arrivi, e nelle partite simulate si restava a circa 9 camere fino al giorno 40 (D-037).
+- **Da definire all'implementazione, su proposta di Claude Code da confermare:** le tappe intermedie tra 1 e 4 arrivi e se oltre la giornata 25 gli arrivi crescono ancora. Nel codice «turno» e «giornata» sono la stessa cosa (D-029): controllare se la giornata 25 corrisponde a `turns_played` 24 o 25. Lo sblocco di pipistrello e ospite vegetale dalla quarta camera (D-032) non cambia. Con più arrivi che camere libere si rifiuta senza penalità, come oggi (D-026).
+- **Deciso da:** Riccardo.
+- **Sostituisce:** in D-034, la formula degli arrivi (un terzo delle camere, per eccesso).
+
+## D-042 — 2026-11-08 — La camera occupata è bloccata
+
+- **Decisione:** quando un ospite entra in una camera, quella camera non si può più spostare né deformare finché l'ospite non parte. Vale anche per le spinte: una modifica che spingerebbe una camera occupata è rifiutata. Il bonus della piscina si decide all'ingresso: lo riceve, per tutto il soggiorno, solo chi entra in una camera che in quel momento ha una parete in comune con la piscina e sta bene. La piscina resta libera di muoversi e deformarsi, ma spostarla non dà né toglie il bonus agli ospiti già sistemati.
+- **Motivo:** impedisce due furbizie. La prima è tenere un ospite stipato e allargare la camera solo prima della paga. La seconda è spostare camere piene, o la piscina, vicino a ciò che dà bonus.
+- **Punti aperti, da proporre all'implementazione:**
+  - se cambiare la luce con l'ospite dentro resta permesso (D-032 lo consente «per rimediare», a pagamento);
+  - come mostrare a schermo che una camera è bloccata, senza affidarsi solo al colore (`AGENTS.md`, sezione 7);
+  - l'icona delle onde deve seguire il bonus deciso all'ingresso, non la posizione attuale della piscina.
+- **Formato del salvataggio:** con ogni probabilità serve la versione 6, per ricordare il bonus della piscina di ogni ospite.
+- **Deciso da:** Riccardo per il blocco e per il bonus deciso all'ingresso, su proposta di Claude Code per la piscina.
+- **Sostituisce:** in D-030, lo spostamento della camera con il suo ospite; in D-036, il bonus calcolato a fine giornata in base alla posizione della piscina. In D-025 la regola sulle modifiche che lascerebbero fuori l'ospite resta, ma diventa un caso del blocco.
+
+## D-043 — 2026-11-08 — Maniglie agli angoli, più piccole
+
+- **Decisione:** le maniglie per cambiare forma passano dai quattro lati ai quattro angoli della camera, al posto di quelle sui lati. Trascinando un angolo si muovono insieme le due pareti che vi si incontrano, così la camera cresce in due direzioni in un solo gesto; il movimento in orizzontale va alla parete laterale e quello in verticale al soffitto o al pavimento, ognuno a celle intere. Le maniglie diventano più piccole a vista e l'area sensibile si riduce di poco, sia verso l'esterno sia verso l'interno.
+- **Conflitto segnalato con `AGENTS.md`, sezione 7:** oggi l'area sensibile misura 96 pixel di traverso (68 fuori e 28 dentro, costanti `HANDLE_TOUCH_*` in `scenes/room_editor/room_editor.gd`), cioè esattamente i 48 dp minimi. Riducendola si scende sotto il minimo. Riccardo lo accetta: proverà sul telefono e dirà se basta o se va riallargata.
+- **Da definire all'implementazione:** le nuove misure; come si comportano le spinte (D-021, D-022) quando si muovono due pareti insieme, compreso il caso di una camera in diagonale; lo spazio per spostare dal centro (D-030) nelle camere da 1 cella. La piscina usa gli stessi gesti, quindi anche lei avrà le maniglie agli angoli.
+- **Deciso da:** Riccardo.
+- **Sostituisce:** in D-030, le misure dell'area sensibile delle maniglie e la loro posizione al centro dei lati.
+
+## D-044 — 2026-11-09 — Nome del gioco provvisorio
+
+- **Decisione:** «Folding Rooms» è un nome provvisorio. Il nome definitivo va scelto prima di aprire gli account social del gioco e la pre-registrazione sugli store, insieme all'identificativo definitivo dell'app (D-014).
+- **Motivo:** cambiare nome dopo aver costruito un pubblico costa caro. Un controllo rapido del 2026-11-09 non ha trovato giochi o marchi con lo stesso nome (`docs/business/PROMOZIONE.md`, fase 1).
+- **Deciso da:** Riccardo.

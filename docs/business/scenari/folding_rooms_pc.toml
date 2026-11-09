@@ -1,0 +1,13 @@
+# Alternativa: Folding Rooms prima su PC (Steam), poi eventualmente su mobile.
+# I puzzle "cozy" con un gesto soddisfacente vendono bene anche su PC (A Little to the Left, Unpacking).
+nome = "Folding Rooms — Steam premium, poi mobile"
+descrizione = "Folding Rooms prima su PC (Steam) a 9,99 €, poi eventualmente su mobile, come hanno fatto A Little to the Left e Unpacking. 6.000 wishlist (intervallo 800–30.000): il gesto di trasformare una camera si presta a brevi video. Spese di 900 € per grafica e musica, ~1.500 ore. Rischio di abbandono del 35%: il gesto e la grafica vanno curati molto, ma c'è un solo store e non serve un Mac."
+prezzo_eur = 9.99
+wishlist_lancio = { valore = 6000, min = 800, max = 30000 }
+quota_itch = 0.03
+spese_eur = 900
+ore_sviluppo = { valore = 1500, min = 1000, max = 2600 }
+prob_abbandono = 0.35        # gesto e grafica da curare molto, ma un solo store e nessun Mac
+regime = "diritti_autore"
+eta = 23
+altro_reddito = 0

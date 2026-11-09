@@ -283,3 +283,9 @@ Formato: numero, data, decisione, motivo, chi ha deciso, eventuale voce o docume
 - **Da definire all'implementazione:** le nuove misure; come si comportano le spinte (D-021, D-022) quando si muovono due pareti insieme, compreso il caso di una camera in diagonale; lo spazio per spostare dal centro (D-030) nelle camere da 1 cella. La piscina usa gli stessi gesti, quindi anche lei avrà le maniglie agli angoli.
 - **Deciso da:** Riccardo.
 - **Sostituisce:** in D-030, le misure dell'area sensibile delle maniglie e la loro posizione al centro dei lati.
+
+## D-044 — 2026-11-09 — Nome del gioco provvisorio
+
+- **Decisione:** «Folding Rooms» è un nome provvisorio. Il nome definitivo va scelto prima di aprire gli account social del gioco e la pre-registrazione sugli store, insieme all'identificativo definitivo dell'app (D-014).
+- **Motivo:** cambiare nome dopo aver costruito un pubblico costa caro. Un controllo rapido del 2026-11-09 non ha trovato giochi o marchi con lo stesso nome (`docs/business/PROMOZIONE.md`, fase 1).
+- **Deciso da:** Riccardo.

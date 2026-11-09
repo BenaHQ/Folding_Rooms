@@ -34,11 +34,21 @@ sistemare un altro ospite.
 Pubblico: nessuno, solo persone che conosci.
 
 - [ ] Controllare che il nome «Folding Rooms» sia libero su App Store, Google Play e sui social;
-      altrimenti scegliere ora il nome definitivo.
+      altrimenti scegliere ora il nome definitivo. Il nome è ancora provvisorio. **Controllo rapido
+      del 2026-11-09:** nessun gioco o app con questo nome trovato con una ricerca web (store,
+      Steam, itch.io), e nessun marchio «folding rooms» su TMview, la banca dati dei marchi
+      dell'Unione europea e di molti uffici nazionali. Nomi vicini, non uguali: «Rooms: The Main
+      Building» (puzzle di stanze, 2008), l'app «Rooms» di Things, Inc. e «Fold It Away». Restano da
+      controllare i nomi utente sui social e, quando il nome sarà definitivo, una verifica più
+      accurata dei marchi.
 - [ ] Registrare gli account del gioco: TikTok, Instagram, YouTube, un indirizzo email. Non serve
       pubblicare nulla.
 - [ ] Registrare clip di 10–20 secondi a ogni traguardo, anche con i placeholder, in una cartella
-      «archivio video». Servono dopo per i video «com'era e com'è».
+      «archivio video». Servono dopo per i video «com'era e com'è». Per clip senza scatti si può
+      usare la modalità Movie Maker di Godot (opzione `--write-movie` da terminale), che registra
+      a fotogrammi fissi anche su un computer lento; il formato 9:16 del gioco è già quello dei
+      video brevi. La clip è anche una prova a basso costo del gesto: se 10 secondi di camera che
+      cambia forma non incuriosiscono, è un segnale sul gioco, non solo sulla promozione.
 - [ ] Far provare il prototipo a 3–5 persone di persona, senza spiegare nulla, con le domande del
       concept (sezione 11): capiscono dove trascinare? Provano un'altra sistemazione da sole? È la
       fase 7 della scaletta del gioco, rinviata da D-028: è anche il modo più economico per
@@ -55,7 +65,13 @@ Pubblico: test chiuso, 20–50 persone.
 
 - [ ] Guida di stile e fetta verticale (`docs/IA_E_CREDITI.md` §2); accordo scritto per la musica (§4).
 - [ ] Test chiuso con TestFlight (iPhone) e test chiuso di Google Play, con uno strumento gratuito
-      di analisi (GameAnalytics o Firebase) per misurare D1 e D7.
+      di analisi (GameAnalytics o Firebase) per misurare D1 e D7. Lo strumento di analisi
+      raccoglie dati dei giocatori: serve prima una decisione esplicita (`AGENTS.md`, sezione 9).
+- [ ] **Requisito di Google Play, non solo promozione:** un account sviluppatore *personale* creato
+      di recente può pubblicare solo dopo un test chiuso con almeno 12 tester per 14 giorni di
+      fila. Numeri da ricontrollare sulla guida ufficiale prima di aprire l'account, perché sono già
+      cambiati in passato. Il test chiuso di questa fase può servire anche a questo, se parte su
+      Google Play e non solo su TestFlight. Serve un telefono Android per le prove (D-013).
 - [ ] Domande ai tester dopo una settimana: cosa ti ha fatto tornare? Cosa ti ha fatto smettere?
 - [ ] Inserire D1 e D7 misurati in `docs/business/scenari/folding_rooms_mobile.toml` e rifare i
       conti con `python -m bizsim simula folding_rooms_mobile` da `Gaming-Business`.
@@ -84,9 +100,17 @@ Pubblico: chi ama i giochi cozy e i puzzle, sui social.
 - [ ] Una pagina con un link solo (il profilo o una pagina semplice) dove raccogliere chi vuole
       essere avvisato all'uscita.
 - [ ] Appena c'è una build presentabile: **pre-registrazione su Google Play** e **preordine su App
-      Store**, con il link sotto ogni video. Sono l'equivalente mobile delle wishlist.
-- [ ] Comunità: Reddit (giochi cozy, giochi per iPhone e Android), un Discord per i tester. Si
-      partecipa e si risponde, non si pubblica solo il link.
+      Store**, con il link sotto ogni video. Sono l'equivalente mobile delle wishlist. Prima serve
+      l'identificativo definitivo dell'app (D-014): una volta aperta la scheda sugli store non si
+      cambia più. Il preordine su App Store si crea dal MacBook Air M1 già usato per le build iOS.
+- [ ] Comunità: Reddit (giochi cozy, giochi per iPhone e Android, e r/godot e r/IndieDev per chi
+      sviluppa), l'hashtag settimanale #screenshotsaturday su Bluesky e X, un Discord per i tester.
+      Si partecipa e si risponde, non si pubblica solo il link.
+- [ ] Una pagina stampa semplice (press kit): descrizione breve, GIF del gesto, schermate, logo,
+      contatto. Serve per scrivere alle testate sui giochi mobile, per esempio Pocket Gamer, che
+      ha un modulo per proporre i giochi, e ai creator.
+- [ ] Facoltativo: una demo su itch.io, come esportazione web o file APK Android. L'esportazione
+      web va provata nel browser del telefono (tocco, fluidità, audio) prima di pubblicarla.
 - [ ] Creator di giochi cozy piccoli e medi: messaggio personale con un video e l'invito al test.
 - [ ] Ascoltare le reazioni, anche sull'uso dell'IA: se il pubblico reagisce male, cambiare strada
       ora costa poco.
@@ -151,8 +175,11 @@ mondiale consuma l'unica occasione di novità del gioco.
 
 ## Fase 5 — Lancio mondiale
 
-- [ ] Richiesta di vetrina alla redazione di App Store (modulo in App Store Connect) e verifica dei
-      programmi di Google Play per i giochi indie attivi in quel momento.
+- [ ] Richiesta di vetrina alla redazione di App Store (in App Store Connect, sezione dedicata alle
+      candidature) e verifica dei programmi di Google Play per i giochi indie attivi in quel
+      momento. La candidatura Apple è gratuita, non garantisce nulla e va inviata almeno 2
+      settimane prima del lancio; Apple consiglia fino a 3 mesi prima. Quindi va preparata durante
+      la fase 4, non al lancio. Si fa dal MacBook Air M1 già usato per le build iOS.
 - [ ] Scheda store curata: icona, prime due schermate, video di anteprima, parole chiave nel titolo
       e nel sottotitolo, traduzioni della scheda nelle lingue principali.
 - [ ] Avviso a chi si è pre-registrato, post su tutti i profili, messaggio ai creator.
